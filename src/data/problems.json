@@ -1,0 +1,74 @@
+[
+  {
+    "id": "p1",
+    "question": "¿Cuánto es 2 + 3?",
+    "options": ["4", "5", "6", "7"],
+    "correctAnswer": 1,
+    "explanation": "2 + 3 = 5",
+    "difficulty": "easy",
+    "category": "suma",
+    "points": 10,
+    "level": 1,
+    "hint": "Suma mentalmente dos y tres."
+  },
+  {
+    "id": "p2",
+    "question": "¿Cuánto es 7 × 6?",
+    "options": ["36", "40", "42", "48"],
+    "correctAnswer": 2,
+    "explanation": "7 × 6 = 42",
+    "difficulty": "easy",
+    "category": "multiplicacion",
+    "points": 10,
+    "level": 1,
+    "hint": "Piensa en siete grupos de seis."
+  },
+  {
+    "id": "p3",
+    "question": "Si x + 5 = 12, ¿cuánto vale x?",
+    "options": ["5", "6", "7", "8"],
+    "correctAnswer": 1,
+    "explanation": "Restamos 5 a ambos lados: x = 12 - 5 = 7.",
+    "difficulty": "medium",
+    "category": "algebra",
+    "points": 15,
+    "level": 2,
+    "hint": "Aísla la incógnita restando 5."
+  },
+  {
+    "id": "p4",
+    "question": "¿Cuál es la raíz cuadrada de 144?",
+    "options": ["10", "11", "12", "14"],
+    "correctAnswer": 2,
+    "explanation": "12 × 12 = 144, por lo tanto √144 = 12.",
+    "difficulty": "medium",
+    "category": "radicales",
+    "points": 15,
+    "level": 2,
+    "hint": "Busca un número que multiplicado por sí mismo dé 144."
+  },
+  {
+    "id": "p5",
+    "question": "¿Cuánto es 17 × 24?",
+    "options": ["288", "398", "408", "432"],
+    "correctAnswer": 2,
+    "explanation": "17 × 24 = 408.",
+    "difficulty": "hard",
+    "category": "multiplicacion",
+    "points": 20,
+    "level": 3,
+    "hint": "Descompón 24 en 20 + 4."
+  },
+  {
+    "id": "p6",
+    "question": "Resuelve la ecuación: 3x - 2 = 4x + 5",
+    "options": ["x = -7", "x = 7", "x = -5", "x = 5"],
+    "correctAnswer": 0,
+    "explanation": "Reordenando: -2 - 5 = 4x - 3x, -7 = x.",
+    "difficulty": "hard",
+    "category": "algebra",
+    "points": 20,
+    "level": 3,
+    "hint": "Pasa todas las x a un lado y números al otro."
+  }
+]

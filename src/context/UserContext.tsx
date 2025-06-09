@@ -1,35 +1,35 @@
-import React, { createContext, useContext, useState, ReactNode } from "react";
+import React, {
+  createContext,
+  useContext,
+  useState,
+  ReactNode,
+  useEffect,
+} from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
-interface User {
-  name: string;
-  level: number;
-  problemsSolved: number;
-  correctAnswers: number;
-  totalStars: number;
-  competences: {
-    [key: string]: number;
-  };
+// Estructura minimalista de progreso de usuario
+export interface UserStats {
+  xp: number; // Puntos de experiencia totales
+  level: number; // Nivel actual calculado en base al XP
+  stars: number; // Estrellas acumuladas
+  streak: number; // Racha de respuestas correctas consecutivas
 }
 
 interface UserContextType {
-  user: User;
-  updateUser: (updates: Partial<User>) => void;
-  addProblemSolved: (isCorrect: boolean) => void;
-  updateCompetence: (competence: string, progress: number) => void;
+  stats: UserStats;
+  addXP: (amount: number) => void;
+  addStar: (amount: number) => void;
+  incrementStreak: () => void;
+  resetStreak: () => void;
 }
 
-const initialUser: User = {
-  name: "Aventurero",
+const STORAGE_KEY = "@minotauro_user_stats";
+
+const defaultStats: UserStats = {
+  xp: 0,
   level: 1,
-  problemsSolved: 0,
-  correctAnswers: 0,
-  totalStars: 0,
-  competences: {
-    Álgebra: 0,
-    Geometría: 0,
-    Fracciones: 0,
-    Porcentajes: 0,
-  },
+  stars: 0,
+  streak: 0,
 };
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
@@ -37,50 +37,66 @@ const UserContext = createContext<UserContextType | undefined>(undefined);
 export const UserProvider: React.FC<{ children: ReactNode }> = ({
   children,
 }) => {
-  const [user, setUser] = useState<User>(initialUser);
+  const [stats, setStats] = useState<UserStats>(defaultStats);
 
-  const updateUser = (updates: Partial<User>) => {
-    setUser((prev) => ({ ...prev, ...updates }));
+  // Cargar progreso guardado al montar la app
+  useEffect(() => {
+    const loadStats = async () => {
+      try {
+        const saved = await AsyncStorage.getItem(STORAGE_KEY);
+        if (saved) {
+          setStats(JSON.parse(saved));
+        }
+      } catch (e) {
+        console.warn("Error cargando progreso de usuario", e);
+      }
+    };
+    loadStats();
+  }, []);
+
+  const persist = (newStats: UserStats) => {
+    setStats(newStats);
+    AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(newStats)).catch((e) =>
+      console.warn("Error guardando progreso", e)
+    );
   };
 
-  const addProblemSolved = (isCorrect: boolean) => {
-    setUser((prev) => ({
-      ...prev,
-      problemsSolved: prev.problemsSolved + 1,
-      correctAnswers: isCorrect ? prev.correctAnswers + 1 : prev.correctAnswers,
-      totalStars: isCorrect ? prev.totalStars + 3 : prev.totalStars,
-      level: Math.floor((prev.problemsSolved + 1) / 5) + 1,
-    }));
+  // Nivel = 1 + (XP / 100) truncado
+  const getLevelForXP = (xp: number) => Math.floor(xp / 100) + 1;
+
+  const addXP = (amount: number) => {
+    const newXP = stats.xp + amount;
+    const newLevel = getLevelForXP(newXP);
+    persist({ ...stats, xp: newXP, level: newLevel });
   };
 
-  const updateCompetence = (competence: string, progress: number) => {
-    setUser((prev) => ({
-      ...prev,
-      competences: {
-        ...prev.competences,
-        [competence]: Math.min(100, Math.max(0, progress)),
-      },
-    }));
+  const addStar = (amount: number) => {
+    persist({ ...stats, stars: stats.stars + amount });
+  };
+
+  const incrementStreak = () => {
+    persist({ ...stats, streak: stats.streak + 1 });
+  };
+
+  const resetStreak = () => {
+    if (stats.streak !== 0) {
+      persist({ ...stats, streak: 0 });
+    }
   };
 
   return (
     <UserContext.Provider
-      value={{
-        user,
-        updateUser,
-        addProblemSolved,
-        updateCompetence,
-      }}
+      value={{ stats, addXP, addStar, incrementStreak, resetStreak }}
     >
       {children}
     </UserContext.Provider>
   );
 };
 
-export const useUser = () => {
-  const context = useContext(UserContext);
-  if (context === undefined) {
+export const useUser = (): UserContextType => {
+  const ctx = useContext(UserContext);
+  if (!ctx) {
     throw new Error("useUser must be used within a UserProvider");
   }
-  return context;
+  return ctx;
 };

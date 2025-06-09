@@ -3,26 +3,14 @@ import { View, Text, StyleSheet, ScrollView } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { RootStackParamList } from "../types/navigation";
+import { useUser } from "../context/UserContext";
 
 type ProgressScreenProps = {
   navigation: NativeStackNavigationProp<RootStackParamList, "Progress">;
 };
 
 const ProgressScreen: React.FC<ProgressScreenProps> = () => {
-  // Mock data for now
-  const stats = {
-    problemsSolved: 15,
-    correctAnswers: 12,
-    currentLevel: 2,
-    totalStars: 36,
-  };
-
-  const competences = [
-    { name: "Álgebra", progress: 75 },
-    { name: "Geometría", progress: 60 },
-    { name: "Fracciones", progress: 45 },
-    { name: "Porcentajes", progress: 30 },
-  ];
+  const { stats } = useUser();
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -32,43 +20,37 @@ const ProgressScreen: React.FC<ProgressScreenProps> = () => {
 
           <View style={styles.statsGrid}>
             <View style={styles.statCard}>
-              <Text style={styles.statNumber}>{stats.problemsSolved}</Text>
-              <Text style={styles.statLabel}>Problemas Resueltos</Text>
+              <Text style={styles.statNumber}>{stats.xp}</Text>
+              <Text style={styles.statLabel}>XP Total</Text>
             </View>
 
             <View style={styles.statCard}>
-              <Text style={styles.statNumber}>{stats.correctAnswers}</Text>
-              <Text style={styles.statLabel}>Respuestas Correctas</Text>
-            </View>
-
-            <View style={styles.statCard}>
-              <Text style={styles.statNumber}>{stats.currentLevel}</Text>
+              <Text style={styles.statNumber}>{stats.level}</Text>
               <Text style={styles.statLabel}>Nivel Actual</Text>
             </View>
 
             <View style={styles.statCard}>
-              <Text style={styles.statNumber}>{stats.totalStars}</Text>
-              <Text style={styles.statLabel}>Estrellas Totales</Text>
+              <Text style={styles.statNumber}>{stats.stars}</Text>
+              <Text style={styles.statLabel}>Estrellas</Text>
+            </View>
+
+            <View style={styles.statCard}>
+              <Text style={styles.statNumber}>{stats.streak}</Text>
+              <Text style={styles.statLabel}>Racha</Text>
             </View>
           </View>
         </View>
 
         <View style={styles.competencesContainer}>
-          <Text style={styles.sectionTitle}>Competencias</Text>
-          {competences.map((competence, index) => (
-            <View key={index} style={styles.competenceItem}>
-              <Text style={styles.competenceName}>{competence.name}</Text>
-              <View style={styles.progressBar}>
-                <View
-                  style={[
-                    styles.progressFill,
-                    { width: `${competence.progress}%` },
-                  ]}
-                />
-              </View>
-              <Text style={styles.progressText}>{competence.progress}%</Text>
-            </View>
-          ))}
+          <Text style={styles.sectionTitle}>Camino de Progreso</Text>
+          <View style={styles.progressBar}>
+            <View
+              style={[styles.progressFill, { width: `${stats.xp % 100}%` }]}
+            />
+          </View>
+          <Text style={styles.progressText}>
+            {stats.xp % 100}/100 XP al siguiente nivel
+          </Text>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -129,18 +111,6 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: "#333",
     marginBottom: 15,
-  },
-  competenceItem: {
-    backgroundColor: "#FFF",
-    padding: 15,
-    borderRadius: 10,
-    marginBottom: 10,
-  },
-  competenceName: {
-    fontSize: 16,
-    fontWeight: "bold",
-    color: "#333",
-    marginBottom: 10,
   },
   progressBar: {
     height: 10,

@@ -4,6 +4,7 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { GameStateProvider } from "./src/context/GameStateProvider";
 import { ThemeProvider } from "./src/theme/ThemeProvider";
 import { AudioProvider } from "./src/context/AudioProvider";
+import { UserProvider } from "./src/context/UserContext";
 import { enableScreens } from "react-native-screens";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
@@ -26,95 +27,97 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <ThemeProvider>
-        <GameStateProvider>
-          <AudioProvider>
-            <NavigationContainer>
-              <Stack.Navigator
-                initialRouteName="Onboarding"
-                screenOptions={{
-                  headerShown: false,
-                  animation: "slide_from_right",
-                  animationDuration: 300,
-                  gestureEnabled: true,
-                  gestureDirection: "horizontal",
-                }}
-              >
-                <Stack.Screen
-                  name="Onboarding"
-                  component={OnboardingScreen}
-                  options={{
-                    animation: "fade",
-                    animationDuration: 500,
-                    gestureEnabled: false,
-                  }}
-                />
-                <Stack.Screen
-                  name="Welcome"
-                  component={WelcomeScreen}
-                  options={{
-                    animation: "fade",
-                    animationDuration: 400,
-                    gestureEnabled: false,
-                  }}
-                />
-                <Stack.Screen
-                  name="Dungeon"
-                  component={DungeonScreen}
-                  options={{
-                    animation: "slide_from_bottom",
-                    animationDuration: 350,
-                    gestureEnabled: true,
-                  }}
-                />
-                <Stack.Screen
-                  name="Choice"
-                  component={ChoiceScreen}
-                  options={{
+        <UserProvider>
+          <GameStateProvider>
+            <AudioProvider>
+              <NavigationContainer>
+                <Stack.Navigator
+                  initialRouteName="Onboarding"
+                  screenOptions={{
+                    headerShown: false,
                     animation: "slide_from_right",
                     animationDuration: 300,
                     gestureEnabled: true,
+                    gestureDirection: "horizontal",
                   }}
-                />
-                <Stack.Screen
-                  name="Problem"
-                  component={ProblemScreen}
-                  options={{
-                    animation: "slide_from_right",
-                    animationDuration: 250,
-                    gestureEnabled: false, // Evitar navegación accidental durante problema
-                  }}
-                />
-                <Stack.Screen
-                  name="Result"
-                  component={ResultScreen}
-                  options={{
-                    animation: "slide_from_bottom",
-                    animationDuration: 400,
-                    gestureEnabled: false, // Forzar uso de botones
-                  }}
-                />
-                <Stack.Screen
-                  name="Progress"
-                  component={ProgressScreen}
-                  options={{
-                    animation: "slide_from_right",
-                    animationDuration: 300,
-                    gestureEnabled: true,
-                  }}
-                />
-                <Stack.Screen
-                  name="Profile"
-                  component={ProfileScreen}
-                  options={{
-                    animation: "slide_from_right",
-                    animationDuration: 300,
-                    gestureEnabled: true,
-                  }}
-                />
-              </Stack.Navigator>
-            </NavigationContainer>
-          </AudioProvider>
-        </GameStateProvider>
+                >
+                  <Stack.Screen
+                    name="Onboarding"
+                    component={OnboardingScreen}
+                    options={{
+                      animation: "fade",
+                      animationDuration: 500,
+                      gestureEnabled: false,
+                    }}
+                  />
+                  <Stack.Screen
+                    name="Welcome"
+                    component={WelcomeScreen}
+                    options={{
+                      animation: "fade",
+                      animationDuration: 400,
+                      gestureEnabled: false,
+                    }}
+                  />
+                  <Stack.Screen
+                    name="Dungeon"
+                    component={DungeonScreen}
+                    options={{
+                      animation: "slide_from_bottom",
+                      animationDuration: 350,
+                      gestureEnabled: true,
+                    }}
+                  />
+                  <Stack.Screen
+                    name="Choice"
+                    component={ChoiceScreen}
+                    options={{
+                      animation: "slide_from_right",
+                      animationDuration: 300,
+                      gestureEnabled: true,
+                    }}
+                  />
+                  <Stack.Screen
+                    name="Problem"
+                    component={ProblemScreen}
+                    options={{
+                      animation: "slide_from_right",
+                      animationDuration: 250,
+                      gestureEnabled: false, // Evitar navegación accidental durante problema
+                    }}
+                  />
+                  <Stack.Screen
+                    name="Result"
+                    component={ResultScreen}
+                    options={{
+                      animation: "slide_from_bottom",
+                      animationDuration: 400,
+                      gestureEnabled: false, // Forzar uso de botones
+                    }}
+                  />
+                  <Stack.Screen
+                    name="Progress"
+                    component={ProgressScreen}
+                    options={{
+                      animation: "slide_from_right",
+                      animationDuration: 300,
+                      gestureEnabled: true,
+                    }}
+                  />
+                  <Stack.Screen
+                    name="Profile"
+                    component={ProfileScreen}
+                    options={{
+                      animation: "slide_from_right",
+                      animationDuration: 300,
+                      gestureEnabled: true,
+                    }}
+                  />
+                </Stack.Navigator>
+              </NavigationContainer>
+            </AudioProvider>
+          </GameStateProvider>
+        </UserProvider>
       </ThemeProvider>
     </SafeAreaProvider>
   );

@@ -38,6 +38,8 @@ import AdaptiveProblemGenerator, {
 } from "../services/AdaptiveProblemGenerator";
 import PerformanceAnalytics from "../services/PerformanceAnalytics";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useUser } from "../context/UserContext";
+import { selectNextProblem } from "../services/SimpleProblemService";
 
 interface ProblemScreenProps {
   navigation: any;
@@ -102,7 +104,6 @@ export const ProblemScreen: React.FC<ProblemScreenProps> = ({
   const [showHint, setShowHint] = useState(false);
   const [streak, setStreak] = useState(0);
   const [lives, setLives] = useState(3);
-  const [xp, setXp] = useState(150);
   const [currentEffect, setCurrentEffect] = useState<
     "correct" | "incorrect" | "streak" | "hint" | "celebration" | "none"
   >("none");
@@ -110,7 +111,7 @@ export const ProblemScreen: React.FC<ProblemScreenProps> = ({
   const [startTime, setStartTime] = useState<number>(Date.now());
   const [hintsUsed, setHintsUsed] = useState(0);
   const [isNavigating, setIsNavigating] = useState(false);
-  const [autoNavTimer, setAutoNavTimer] = useState<NodeJS.Timeout | null>(null);
+  const [problemsSolvedSession, setProblemsSolvedSession] = useState(0);
   const lastProblemIdRef = useRef<string>("");
 
   // Servicios singleton
@@ -156,6 +157,15 @@ export const ProblemScreen: React.FC<ProblemScreenProps> = ({
     hasLevelUp,
     processLevelUpQueue,
   } = useLevelProgression(userStats?.totalXp || 0);
+
+  // 🎮 Gamificación global
+  const {
+    stats,
+    addXP: globalAddXP,
+    addStar,
+    incrementStreak,
+    resetStreak,
+  } = useUser();
 
   // Animaciones
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -454,9 +464,6 @@ export const ProblemScreen: React.FC<ProblemScreenProps> = ({
       if (longPressTimer.current) {
         clearTimeout(longPressTimer.current);
       }
-      if (autoNavTimer) {
-        clearTimeout(autoNavTimer);
-      }
     };
   }, []);
 
@@ -567,12 +574,6 @@ export const ProblemScreen: React.FC<ProblemScreenProps> = ({
   // ✅ FUNCIÓN DE RESETEO COMPLETO DEL ESTADO
   const resetProblemState = () => {
     console.log("🔄 Reseteando estado de ProblemScreen");
-
-    // Limpiar timer si existe
-    if (autoNavTimer) {
-      clearTimeout(autoNavTimer);
-      setAutoNavTimer(null);
-    }
 
     // Resetear todos los estados relacionados con el problema
     setSelectedAnswer(null);
@@ -1075,9 +1076,7 @@ export const ProblemScreen: React.FC<ProblemScreenProps> = ({
           }
 
           // ✅ GENERAR NUEVO PROBLEMA (IA adaptativa o tradicional)
-          const problem = useAdaptiveProblems
-            ? await generateAdaptiveProblem()
-            : generateProblemByScene();
+          const problem = selectNextProblem(stats);
           setCurrentProblem(problem);
           setStartTime(Date.now());
 
@@ -1113,9 +1112,6 @@ export const ProblemScreen: React.FC<ProblemScreenProps> = ({
       // Cleanup cuando la pantalla se desenfoca
       return () => {
         console.log("👋 ProblemScreen desenfocada - Limpiando");
-        if (autoNavTimer) {
-          clearTimeout(autoNavTimer);
-        }
       };
     }, [currentScene, problemType])
   );
@@ -1170,9 +1166,7 @@ export const ProblemScreen: React.FC<ProblemScreenProps> = ({
     setSelectedAnswer(answerIndex);
     setIsAnswered(true);
 
-    const correct =
-      currentProblem?.options[answerIndex] ===
-      currentProblem?.correctAnswer.toString();
+    const correct = answerIndex === currentProblem?.correctAnswer;
     setIsCorrect(correct);
 
     // Calcular tiempo empleado
@@ -1181,32 +1175,35 @@ export const ProblemScreen: React.FC<ProblemScreenProps> = ({
     // Actualizar sistema adaptativo
     adaptiveDifficulty.updatePerformance(correct, timeSpent, currentLevel);
 
-    let xpGained = 10;
+    // --- Nueva lógica de gamificación mínima ---
+    let xpGained = 0;
+    let starsEarned = 0;
     let newStreak = correct ? streak + 1 : 0;
 
     if (correct) {
-      // Respuesta correcta
+      // XP básico
+      xpGained = 10;
+      starsEarned = 1;
+
+      // Bonus rapidez (<10 s)
+      if (timeSpent < 10) {
+        xpGained += 5;
+        starsEarned = 2;
+      }
+
+      // Bonus dificultad HARD
+      if (difficulty === "hard") {
+        starsEarned = 3;
+      }
+
+      // Actualizar contexto global
+      globalAddXP(xpGained);
+      addStar(starsEarned);
+      incrementStreak();
+
       setStreak(newStreak);
 
-      // Calcular XP con bonificaciones
-      const difficultyModifiers = adaptiveDifficulty.getDifficultyModifiers();
-
-      // Bonus por dificultad
-      if (difficultyModifiers.complexityLevel >= 3) xpGained += 5;
-      if (difficultyModifiers.complexityLevel >= 4) xpGained += 10;
-
-      // Bonus por velocidad
-      if (difficultyModifiers.timeBonus && timeSpent < 10) xpGained += 5;
-
-      // Bonus por racha
-      if (newStreak >= 3) xpGained += newStreak * 2;
-
-      setXp((prev) => prev + xpGained);
-
-      // ✅ NUEVO: Añadir XP al sistema de progresión
-      addXP(xpGained);
-
-      // Determinar tipo de efecto
+      // Feedback visual
       if (newStreak >= 5) {
         setCurrentEffect("celebration");
       } else if (newStreak >= 3) {
@@ -1233,6 +1230,9 @@ export const ProblemScreen: React.FC<ProblemScreenProps> = ({
       // Respuesta incorrecta
       setLives((prev) => Math.max(0, prev - 1));
       setStreak(0);
+
+      // Resetear racha global
+      resetStreak();
 
       setCurrentEffect("incorrect");
       setShowEffect(true);
@@ -1305,68 +1305,26 @@ export const ProblemScreen: React.FC<ProblemScreenProps> = ({
       }
     }
 
-    // ✅ NAVEGACIÓN AUTOMÁTICA TRAS 3 SEGUNDOS
-    const timer = setTimeout(() => {
-      handleAutoNavigation(correct, xpGained, timeSpent, newStreak);
-    }, 3000);
-
-    setAutoNavTimer(timer);
+    // Mostrar botón "Continuar" para que el usuario avance manualmente
+    setProblemsSolvedSession((prev) => prev + 1);
   };
 
   const handleContinue = () => {
-    if (isNavigating) return;
+    if (!isAnswered) return;
 
-    // Cancelar navegación automática si existe
-    if (autoNavTimer) {
-      clearTimeout(autoNavTimer);
-      setAutoNavTimer(null);
+    // Reiniciar para nuevo problema
+    initializeProblem();
+
+    // Cada 5 problemas correctos, mostrar pantalla de Progreso
+    if (problemsSolvedSession > 0 && problemsSolvedSession % 5 === 0) {
+      navigation.navigate("Progress");
     }
-
-    if (lives <= 0) {
-      // Game Over
-      Alert.alert(
-        "💀 Aventura Terminada",
-        "Te has quedado sin vidas. ¡Inténtalo de nuevo!",
-        [{ text: "Reintentar", onPress: () => navigation.navigate("Dungeon") }]
-      );
-      return;
-    }
-
-    setIsNavigating(true);
-
-    // Calcular datos para ResultScreen
-    const timeSpent = (Date.now() - startTime) / 1000;
-    const difficultyModifiers = adaptiveDifficulty.getDifficultyModifiers();
-    let xpGained = 10;
-
-    if (isCorrect) {
-      // Calcular XP ganada
-      if (difficultyModifiers.complexityLevel >= 3) xpGained += 5;
-      if (difficultyModifiers.complexityLevel >= 4) xpGained += 10;
-      if (difficultyModifiers.timeBonus && timeSpent < 10) xpGained += 5;
-      if (streak >= 3) xpGained += streak * 2;
-    }
-
-    // Navegar a ResultScreen con todos los datos
-    navigation.navigate("Result", {
-      isCorrect,
-      xpGained,
-      timeSpent,
-      streak,
-      currentScene,
-      nextScene,
-      currentLevel,
-      difficulty,
-      problemType,
-      sessionType: "single",
-      problemsInSession,
-    });
   };
 
   const handleHint = () => {
     setShowHint(true);
     setHintsUsed((prev) => prev + 1);
-    setXp((prev) => Math.max(0, prev - 5)); // Cuesta XP usar pistas
+    // Ya no se descuenta XP en esta versión simplificada
 
     setCurrentEffect("hint");
     setShowEffect(true);
@@ -1420,7 +1378,7 @@ export const ProblemScreen: React.FC<ProblemScreenProps> = ({
         backgroundColor={colors.background.default}
       />
 
-      <GameHeader xp={xp} lives={lives} level={currentLevel} />
+      <GameHeader xp={stats.xp} lives={lives} level={stats.level} />
 
       {/* ✅ Progresión de nivel integrada */}
       {userStats && (
@@ -1570,24 +1528,11 @@ export const ProblemScreen: React.FC<ProblemScreenProps> = ({
             {isAnswered && (
               <View style={styles.navigationSection}>
                 {/* Indicador de navegación automática */}
-                {autoNavTimer && !isNavigating && (
+                {isNavigating && (
                   <View style={styles.autoNavIndicator}>
                     <Text style={styles.autoNavText}>
-                      Navegando automáticamente en 3s...
+                      Navegando automáticamente...
                     </Text>
-                    <View style={styles.progressIndicator}>
-                      <Animated.View
-                        style={[
-                          styles.progressBar,
-                          {
-                            width: progressAnim.interpolate({
-                              inputRange: [0, 1],
-                              outputRange: ["0%", "100%"],
-                            }),
-                          },
-                        ]}
-                      />
-                    </View>
                   </View>
                 )}
 
@@ -1601,11 +1546,7 @@ export const ProblemScreen: React.FC<ProblemScreenProps> = ({
                   disabled={isNavigating}
                 >
                   <Text style={styles.continueButtonText}>
-                    {isNavigating
-                      ? "Navegando..."
-                      : autoNavTimer
-                      ? "Continuar Ahora"
-                      : "Continuar"}
+                    {isNavigating ? "Navegando..." : "Continuar"}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -1819,18 +1760,6 @@ const styles = StyleSheet.create({
     color: colors.primary.main,
     fontWeight: "600",
     marginBottom: spacing.sm,
-  },
-  progressIndicator: {
-    width: "100%",
-    height: 4,
-    backgroundColor: colors.primary.light + "30",
-    borderRadius: 2,
-    overflow: "hidden",
-  },
-  progressBar: {
-    height: "100%",
-    backgroundColor: colors.primary.main,
-    borderRadius: 2,
   },
   disabledButton: {
     opacity: 0.6,

@@ -135,6 +135,31 @@ class StorageService {
       return true;
     }
   }
+
+  // Get problems (alias for getCachedProblems)
+  async getProblems(): Promise<Problem[]> {
+    return this.getCachedProblems();
+  }
+
+  // Save problems (alias for cacheProblems)
+  async saveProblems(problems: Problem[]): Promise<void> {
+    return this.cacheProblems(problems);
+  }
+
+  // Get local progress (alias for getOfflineProgress)
+  async getLocalProgress(): Promise<OfflineProgress | null> {
+    return this.getOfflineProgress();
+  }
+
+  // Save local progress (alias for saveOfflineProgress)
+  async saveLocalProgress(progress: OfflineProgress): Promise<void> {
+    return this.saveOfflineProgress(progress);
+  }
+
+  // Clear local progress (alias for clearOfflineProgress)
+  async clearLocalProgress(): Promise<void> {
+    return this.clearOfflineProgress();
+  }
 }
 
 export const storageService = new StorageService();

@@ -1,92 +1,39 @@
-import React, { useEffect } from "react";
-import { View, Image, StyleSheet, Animated, Easing } from "react-native";
-import { useTheme } from "../theme/ThemeProvider";
-
-type MinoState = "neutral" | "happy" | "angry";
+import React from "react";
+import { Image, StyleSheet, View } from "react-native";
 
 interface MinoMascotProps {
-  state?: MinoState;
+  mood?: "happy" | "neutral" | "sad";
   size?: number;
-  animated?: boolean;
 }
 
 const MinoMascot: React.FC<MinoMascotProps> = ({
-  state = "neutral",
+  mood = "neutral",
   size = 200,
-  animated = true,
 }) => {
-  const theme = useTheme();
-  const bounceAnim = new Animated.Value(0);
-
-  useEffect(() => {
-    if (animated) {
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(bounceAnim, {
-            toValue: 1,
-            duration: theme.animation.timing.normal,
-            easing: Easing.out(Easing.quad),
-            useNativeDriver: true,
-          }),
-          Animated.timing(bounceAnim, {
-            toValue: 0,
-            duration: theme.animation.timing.normal,
-            easing: Easing.in(Easing.quad),
-            useNativeDriver: true,
-          }),
-        ])
-      ).start();
-    }
-  }, [animated]);
-
-  const getMinoImage = () => {
-    switch (state) {
+  const getImageSource = () => {
+    switch (mood) {
       case "happy":
         return require("../assets/images/mino-happy.png");
-      case "angry":
-        return require("../assets/images/mino-angry.png");
+      case "sad":
+        return require("../assets/images/mino-sad.png");
       default:
         return require("../assets/images/mino-neutral.png");
     }
   };
 
-  const translateY = bounceAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, -10],
-  });
-
   return (
     <View style={styles.container}>
-      <Animated.View
-        style={[
-          styles.imageContainer,
-          {
-            transform: [{ translateY }],
-          },
-        ]}
-      >
-        <Image
-          source={getMinoImage()}
-          style={[
-            styles.image,
-            {
-              width: size,
-              height: size,
-            },
-          ]}
-          resizeMode="contain"
-        />
-      </Animated.View>
+      <Image
+        source={getImageSource()}
+        style={[styles.image, { width: size, height: size }]}
+        resizeMode="contain"
+      />
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  imageContainer: {
     alignItems: "center",
     justifyContent: "center",
   },

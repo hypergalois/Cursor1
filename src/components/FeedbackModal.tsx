@@ -12,18 +12,14 @@ import { useTheme } from "../theme/ThemeProvider";
 import MinoMascot from "./MinoMascot";
 
 interface FeedbackModalProps {
-  visible: boolean;
   isCorrect: boolean;
-  score: number;
-  onClose: () => void;
+  explanation: string;
   onContinue: () => void;
 }
 
 const FeedbackModal: React.FC<FeedbackModalProps> = ({
-  visible,
   isCorrect,
-  score,
-  onClose,
+  explanation,
   onContinue,
 }) => {
   const theme = useTheme();
@@ -31,60 +27,23 @@ const FeedbackModal: React.FC<FeedbackModalProps> = ({
   const opacityAnim = new Animated.Value(0);
 
   useEffect(() => {
-    if (visible) {
-      Animated.parallel([
-        Animated.timing(scaleAnim, {
-          toValue: 1,
-          duration: theme.animation.timing.normal,
-          easing: Easing.out(Easing.back(1.5)),
-          useNativeDriver: true,
-        }),
-        Animated.timing(opacityAnim, {
-          toValue: 1,
-          duration: theme.animation.timing.normal,
-          useNativeDriver: true,
-        }),
-      ]).start();
-    } else {
-      scaleAnim.setValue(0);
-      opacityAnim.setValue(0);
-    }
-  }, [visible]);
-
-  const renderStars = () => {
-    const stars: React.ReactNode[] = [];
-    const maxStars = 3;
-    const filledStars = Math.min(Math.floor(score / 2), maxStars);
-
-    for (let i = 0; i < maxStars; i++) {
-      stars.push(
-        <Text
-          key={i}
-          style={[
-            styles.star,
-            {
-              color:
-                i < filledStars
-                  ? theme.colors.status.warning
-                  : theme.colors.text.secondary,
-            },
-          ]}
-        >
-          ★
-        </Text>
-      );
-    }
-
-    return <View style={styles.starsContainer}>{stars}</View>;
-  };
+    Animated.parallel([
+      Animated.timing(scaleAnim, {
+        toValue: 1,
+        duration: 300,
+        easing: Easing.out(Easing.back(1.5)),
+        useNativeDriver: true,
+      }),
+      Animated.timing(opacityAnim, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
 
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="none"
-      onRequestClose={onClose}
-    >
+    <Modal visible={true} transparent animationType="none">
       <View style={styles.modalOverlay}>
         <Animated.View
           style={[
@@ -92,14 +51,11 @@ const FeedbackModal: React.FC<FeedbackModalProps> = ({
             {
               transform: [{ scale: scaleAnim }],
               opacity: opacityAnim,
+              backgroundColor: theme.colors.background.paper,
             },
           ]}
         >
-          <MinoMascot
-            state={isCorrect ? "happy" : "angry"}
-            size={150}
-            animated={true}
-          />
+          <MinoMascot mood={isCorrect ? "happy" : "sad"} size={150} />
 
           <Text
             style={[styles.resultText, { color: theme.colors.text.primary }]}
@@ -108,34 +64,30 @@ const FeedbackModal: React.FC<FeedbackModalProps> = ({
           </Text>
 
           <Text
-            style={[styles.scoreText, { color: theme.colors.text.secondary }]}
+            style={[
+              styles.explanationText,
+              { color: theme.colors.text.secondary },
+            ]}
           >
-            Puntuación: {score} puntos
+            {explanation}
           </Text>
 
-          {renderStars()}
-
-          <View style={styles.buttonContainer}>
-            <TouchableOpacity
+          <TouchableOpacity
+            style={[
+              styles.button,
+              { backgroundColor: theme.colors.primary.main },
+            ]}
+            onPress={onContinue}
+          >
+            <Text
               style={[
-                styles.button,
-                { backgroundColor: theme.colors.primary.main },
+                styles.buttonText,
+                { color: theme.colors.primary.contrastText },
               ]}
-              onPress={onContinue}
             >
-              <Text style={styles.buttonText}>Continuar</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[
-                styles.button,
-                { backgroundColor: theme.colors.text.secondary },
-              ]}
-              onPress={onClose}
-            >
-              <Text style={styles.buttonText}>Cerrar</Text>
-            </TouchableOpacity>
-          </View>
+              Continuar
+            </Text>
+          </TouchableOpacity>
         </Animated.View>
       </View>
     </Modal>
@@ -150,7 +102,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   modalContent: {
-    backgroundColor: "white",
     borderRadius: 20,
     padding: 24,
     alignItems: "center",
@@ -163,21 +114,10 @@ const styles = StyleSheet.create({
     marginTop: 16,
     marginBottom: 8,
   },
-  scoreText: {
-    fontSize: 20,
-    marginBottom: 16,
-  },
-  starsContainer: {
-    flexDirection: "row",
+  explanationText: {
+    fontSize: 16,
+    textAlign: "center",
     marginBottom: 24,
-  },
-  star: {
-    fontSize: 32,
-    marginHorizontal: 4,
-  },
-  buttonContainer: {
-    flexDirection: "row",
-    gap: 12,
   },
   button: {
     paddingVertical: 12,
@@ -186,7 +126,6 @@ const styles = StyleSheet.create({
     minWidth: 120,
   },
   buttonText: {
-    color: "white",
     fontSize: 16,
     fontWeight: "bold",
     textAlign: "center",

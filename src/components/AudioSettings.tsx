@@ -1,17 +1,12 @@
 import React from "react";
-import { View, Text, StyleSheet, Switch, Slider } from "react-native";
+import { View, Text, StyleSheet, Switch } from "react-native";
+import Slider from "@react-native-community/slider";
 import { useTheme } from "../theme/ThemeProvider";
 import { useAudio } from "../context/AudioProvider";
 
 const AudioSettings: React.FC = () => {
   const theme = useTheme();
-  const {
-    audioState,
-    toggleMusic,
-    toggleSound,
-    setMusicVolume,
-    setSoundVolume,
-  } = useAudio();
+  const { isMuted, toggleMute, volume, setVolume } = useAudio();
 
   return (
     <View
@@ -27,11 +22,11 @@ const AudioSettings: React.FC = () => {
       <View style={styles.section}>
         <View style={styles.row}>
           <Text style={[styles.label, { color: theme.colors.text.primary }]}>
-            Música de Fondo
+            Sonido
           </Text>
           <Switch
-            value={audioState.isMusicEnabled}
-            onValueChange={toggleMusic}
+            value={!isMuted}
+            onValueChange={toggleMute}
             trackColor={{
               false: theme.colors.border,
               true: theme.colors.primary.main,
@@ -44,41 +39,12 @@ const AudioSettings: React.FC = () => {
           minimumValue={0}
           maximumValue={1}
           step={0.1}
-          value={audioState.musicVolume}
-          onValueChange={setMusicVolume}
+          value={volume}
+          onValueChange={setVolume}
           minimumTrackTintColor={theme.colors.primary.main}
           maximumTrackTintColor={theme.colors.border}
           thumbTintColor={theme.colors.primary.main}
-          disabled={!audioState.isMusicEnabled}
-        />
-      </View>
-
-      <View style={styles.section}>
-        <View style={styles.row}>
-          <Text style={[styles.label, { color: theme.colors.text.primary }]}>
-            Efectos de Sonido
-          </Text>
-          <Switch
-            value={audioState.isSoundEnabled}
-            onValueChange={toggleSound}
-            trackColor={{
-              false: theme.colors.border,
-              true: theme.colors.primary.main,
-            }}
-            thumbColor={theme.colors.background.paper}
-          />
-        </View>
-        <Slider
-          style={styles.slider}
-          minimumValue={0}
-          maximumValue={1}
-          step={0.1}
-          value={audioState.soundVolume}
-          onValueChange={setSoundVolume}
-          minimumTrackTintColor={theme.colors.primary.main}
-          maximumTrackTintColor={theme.colors.border}
-          thumbTintColor={theme.colors.primary.main}
-          disabled={!audioState.isSoundEnabled}
+          disabled={isMuted}
         />
       </View>
     </View>

@@ -1,302 +1,212 @@
-import React, { useState, useRef } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  TextInput,
-  KeyboardAvoidingView,
-  Platform,
-  Animated,
-} from "react-native";
+import React, { useState } from "react";
+import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
+import { Problem } from "../types/Problem";
 import { useTheme } from "../theme/ThemeProvider";
-import { useGameState } from "../context/GameStateProvider";
-import FeedbackModal from "./FeedbackModal";
-import CelebrationEffect from "./CelebrationEffect";
-import { useAudio } from "../context/AudioProvider";
 
 interface ProblemCardProps {
-  problem: {
-    id: string;
-    question: string;
-    answer: string;
-    hint?: string;
-  };
+  problem: Problem;
   onComplete: (score: number) => void;
   onError: () => void;
 }
 
-const ProblemCard: React.FC<ProblemCardProps> = ({
+export const ProblemCard: React.FC<ProblemCardProps> = ({
   problem,
   onComplete,
   onError,
 }) => {
   const theme = useTheme();
-  const { gameState, loseLife, useHint, addExperience } = useGameState();
-  const { playSound } = useAudio();
-  const [answer, setAnswer] = useState("");
-  const [showFeedback, setShowFeedback] = useState(false);
-  const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
-  const [showHint, setShowHint] = useState(false);
-  const [showCelebration, setShowCelebration] = useState(false);
+  const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
+  const [showExplanation, setShowExplanation] = useState(false);
+  const [isAnswered, setIsAnswered] = useState(false);
 
-  // Animation values
-  const shakeAnim = useRef(new Animated.Value(0)).current;
-  const inputScaleAnim = useRef(new Animated.Value(1)).current;
+  const handleAnswer = (index: number) => {
+    if (isAnswered) return;
 
-  const handleSubmit = () => {
-    const isAnswerCorrect = parseInt(answer) === problem.answer;
-    setIsCorrect(isAnswerCorrect);
-    setShowFeedback(true);
+    setSelectedAnswer(index);
+    setIsAnswered(true);
+    const isCorrect = index === problem.correctAnswer;
 
-    if (isAnswerCorrect) {
-      playSound("correct");
-      animateSuccess();
-      setShowCelebration(true);
-      const score = calculateScore();
-      addExperience(score);
-      onComplete(score);
+    if (isCorrect) {
+      onComplete(problem.points);
     } else {
-      playSound("incorrect");
-      animateError();
-      loseLife();
+      onError();
     }
-  };
 
-  const animateError = () => {
-    Animated.sequence([
-      Animated.timing(shakeAnim, {
-        toValue: 10,
-        duration: 100,
-        useNativeDriver: true,
-      }),
-      Animated.timing(shakeAnim, {
-        toValue: -10,
-        duration: 100,
-        useNativeDriver: true,
-      }),
-      Animated.timing(shakeAnim, {
-        toValue: 10,
-        duration: 100,
-        useNativeDriver: true,
-      }),
-      Animated.timing(shakeAnim, {
-        toValue: 0,
-        duration: 100,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  };
-
-  const animateSuccess = () => {
-    Animated.sequence([
-      Animated.timing(inputScaleAnim, {
-        toValue: 1.1,
-        duration: 100,
-        useNativeDriver: true,
-      }),
-      Animated.timing(inputScaleAnim, {
-        toValue: 1,
-        duration: 100,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  };
-
-  const handleHint = () => {
-    if (useHint()) {
-      setShowHint(true);
-    }
-  };
-
-  const handleContinue = () => {
-    setShowFeedback(false);
-    setAnswer("");
-    setShowHint(false);
-    setShowCelebration(false);
-  };
-
-  const calculateScore = () => {
-    const baseScore = 10 * gameState.level;
-    const livesBonus = gameState.lives * 5;
-    return baseScore + livesBonus;
+    setShowExplanation(true);
   };
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-      style={styles.container}
+    <View
+      style={[
+        styles.container,
+        { backgroundColor: theme.colors.background.paper },
+      ]}
     >
-      <View
-        style={[
-          styles.card,
-          { backgroundColor: theme.colors.background.paper },
-        ]}
-      >
+      <View style={styles.header}>
         <Text style={[styles.question, { color: theme.colors.text.primary }]}>
           {problem.question}
         </Text>
-
-        {showHint && problem.hint && (
-          <View style={styles.hintContainer}>
+        <View style={styles.badges}>
+          <View
+            style={[
+              styles.badge,
+              { backgroundColor: theme.colors.primary.light },
+            ]}
+          >
             <Text
-              style={[styles.hintLabel, { color: theme.colors.text.secondary }]}
+              style={[styles.badgeText, { color: theme.colors.primary.main }]}
             >
-              💡 Pista:
-            </Text>
-            <Text
-              style={[styles.hintText, { color: theme.colors.text.secondary }]}
-            >
-              {problem.hint}
+              Nivel {problem.level}
             </Text>
           </View>
-        )}
-
-        <Animated.View
-          style={[
-            styles.inputContainer,
-            {
-              transform: [{ translateX: shakeAnim }, { scale: inputScaleAnim }],
-            },
-          ]}
-        >
-          <TextInput
+          <View
             style={[
-              styles.input,
-              {
-                backgroundColor: theme.colors.background.default,
-                color: theme.colors.text.primary,
-                borderColor: theme.colors.border,
-              },
+              styles.badge,
+              { backgroundColor: theme.colors.success.light },
             ]}
-            value={answer}
-            onChangeText={setAnswer}
-            keyboardType="numeric"
-            placeholder="Tu respuesta"
-            placeholderTextColor={theme.colors.text.secondary}
-          />
-        </Animated.View>
-
-        <View style={styles.buttonContainer}>
-          {!showHint && problem.hint && (
-            <TouchableOpacity
-              style={[styles.button, styles.hintButton]}
-              onPress={handleHint}
-              disabled={gameState.hints <= 0}
-            >
-              <Text
-                style={[
-                  styles.buttonText,
-                  { color: theme.colors.primary.main },
-                ]}
-              >
-                💡 Usar Pista ({gameState.hints})
-              </Text>
-            </TouchableOpacity>
-          )}
-
-          <TouchableOpacity
-            style={[
-              styles.button,
-              styles.submitButton,
-              { backgroundColor: theme.colors.primary.main },
-            ]}
-            onPress={handleSubmit}
-            disabled={!answer.trim()}
           >
-            <Text style={styles.buttonText}>Comprobar</Text>
-          </TouchableOpacity>
+            <Text
+              style={[styles.badgeText, { color: theme.colors.success.main }]}
+            >
+              {problem.points} puntos
+            </Text>
+          </View>
         </View>
       </View>
 
-      <FeedbackModal
-        visible={showFeedback}
-        isCorrect={isCorrect}
-        score={isCorrect ? calculateScore() : 0}
-        onClose={() => setShowFeedback(false)}
-        onContinue={handleContinue}
-      />
+      <View style={styles.optionsContainer}>
+        {problem.options.map((option, index) => (
+          <TouchableOpacity
+            key={index}
+            onPress={() => handleAnswer(index)}
+            disabled={isAnswered}
+            style={[
+              styles.option,
+              selectedAnswer === index && {
+                backgroundColor:
+                  index === problem.correctAnswer
+                    ? theme.colors.success.light
+                    : theme.colors.error.light,
+                borderColor:
+                  index === problem.correctAnswer
+                    ? theme.colors.success.main
+                    : theme.colors.error.main,
+              },
+            ]}
+          >
+            <Text
+              style={[styles.optionText, { color: theme.colors.text.primary }]}
+            >
+              {option}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
 
-      {showCelebration && (
-        <CelebrationEffect
-          isActive={showCelebration}
-          onComplete={() => setShowCelebration(false)}
-        />
+      {showExplanation && (
+        <View
+          style={[
+            styles.explanation,
+            { backgroundColor: theme.colors.background.default },
+          ]}
+        >
+          <Text
+            style={[
+              styles.explanationTitle,
+              { color: theme.colors.text.primary },
+            ]}
+          >
+            Explicación:
+          </Text>
+          <Text
+            style={[
+              styles.explanationText,
+              { color: theme.colors.text.secondary },
+            ]}
+          >
+            {problem.explanation}
+          </Text>
+          <Text
+            style={[styles.hintTitle, { color: theme.colors.text.primary }]}
+          >
+            Pista:
+          </Text>
+          <Text
+            style={[styles.hintText, { color: theme.colors.text.secondary }]}
+          >
+            {problem.hint}
+          </Text>
+        </View>
       )}
-    </KeyboardAvoidingView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
+    borderRadius: 8,
     padding: 16,
-  },
-  card: {
-    borderRadius: 12,
-    padding: 20,
+    marginVertical: 8,
     shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
   },
-  question: {
-    fontSize: 20,
-    fontWeight: "bold",
-    marginBottom: 20,
-    textAlign: "center",
-  },
-  hintContainer: {
-    backgroundColor: "rgba(0, 0, 0, 0.05)",
-    padding: 12,
-    borderRadius: 8,
+  header: {
     marginBottom: 16,
   },
-  hintLabel: {
-    fontSize: 14,
+  question: {
+    fontSize: 18,
     fontWeight: "bold",
-    marginBottom: 4,
+    marginBottom: 8,
+  },
+  badges: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  badge: {
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 16,
+  },
+  badgeText: {
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  optionsContainer: {
+    gap: 8,
+    marginBottom: 16,
+  },
+  option: {
+    padding: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+  },
+  optionText: {
+    fontSize: 16,
+  },
+  explanation: {
+    padding: 16,
+    borderRadius: 8,
+    marginTop: 16,
+  },
+  explanationTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    marginBottom: 8,
+  },
+  explanationText: {
+    fontSize: 14,
+    marginBottom: 16,
+  },
+  hintTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    marginBottom: 8,
   },
   hintText: {
-    fontSize: 16,
-  },
-  inputContainer: {
-    marginBottom: 16,
-  },
-  input: {
-    height: 48,
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    fontSize: 16,
-  },
-  buttonContainer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    gap: 12,
-  },
-  button: {
-    flex: 1,
-    height: 48,
-    borderRadius: 8,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  hintButton: {
-    backgroundColor: "transparent",
-  },
-  submitButton: {
-    minWidth: 120,
-  },
-  buttonText: {
-    color: "white",
-    fontSize: 16,
-    fontWeight: "bold",
+    fontSize: 14,
   },
 });
-
-export default ProblemCard;

@@ -12,6 +12,8 @@ import { useTheme } from "../theme/ThemeProvider";
 import { useGameState } from "../context/GameStateProvider";
 import MinoMascot from "./MinoMascot";
 
+const ANIMATION_DURATION = 300;
+
 const DailyReward: React.FC = () => {
   const theme = useTheme();
   const { gameState, claimDailyReward } = useGameState();
@@ -26,28 +28,29 @@ const DailyReward: React.FC = () => {
 
   const checkDailyReward = () => {
     const today = new Date().toISOString().split("T")[0];
-    setCanClaim(gameState.lastDailyReward !== today);
+    const lastReward = gameState.lastDailyReward
+      ? new Date(gameState.lastDailyReward).toISOString().split("T")[0]
+      : null;
+    setCanClaim(lastReward !== today);
   };
 
   const handleClaim = async () => {
-    const claimed = await claimDailyReward();
-    if (claimed) {
-      setShowModal(true);
-      animateModal();
-    }
+    await claimDailyReward();
+    setShowModal(true);
+    animateModal();
   };
 
   const animateModal = () => {
     Animated.parallel([
       Animated.timing(scaleAnim, {
         toValue: 1,
-        duration: theme.animation.timing.normal,
+        duration: ANIMATION_DURATION,
         easing: Easing.out(Easing.back(1.5)),
         useNativeDriver: true,
       }),
       Animated.timing(opacityAnim, {
         toValue: 1,
-        duration: theme.animation.timing.normal,
+        duration: ANIMATION_DURATION,
         useNativeDriver: true,
       }),
     ]).start();
@@ -57,12 +60,12 @@ const DailyReward: React.FC = () => {
     Animated.parallel([
       Animated.timing(scaleAnim, {
         toValue: 0,
-        duration: theme.animation.timing.normal,
+        duration: ANIMATION_DURATION,
         useNativeDriver: true,
       }),
       Animated.timing(opacityAnim, {
         toValue: 0,
-        duration: theme.animation.timing.normal,
+        duration: ANIMATION_DURATION,
         useNativeDriver: true,
       }),
     ]).start(() => {
@@ -97,7 +100,7 @@ const DailyReward: React.FC = () => {
               },
             ]}
           >
-            <MinoMascot state="happy" size={150} animated={true} />
+            <MinoMascot mood="happy" size={150} />
 
             <Text style={[styles.title, { color: theme.colors.text.primary }]}>
               ¡Recompensa Diaria!
@@ -126,7 +129,7 @@ const DailyReward: React.FC = () => {
                   { color: theme.colors.text.secondary },
                 ]}
               >
-                🔥 Racha: {gameState.streak} días
+                ❤️ +1 Vida
               </Text>
             </View>
 

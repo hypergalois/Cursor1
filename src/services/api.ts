@@ -1,20 +1,13 @@
-import axios from "axios";
-import { Problem } from "../data/mockProblems";
-
-const API_BASE_URL = "https://api.minotauro.com"; // Replace with actual API URL
-
-const api = axios.create({
-  baseURL: API_BASE_URL,
-  timeout: 10000,
-  headers: {
-    "Content-Type": "application/json",
-  },
-});
+import { Problem } from "../types/Problem";
+import { mockProblems } from "../data/mockProblems";
 
 export const getProblem = async (problemId: string): Promise<Problem> => {
   try {
-    const response = await api.get(`/problems/${problemId}`);
-    return response.data;
+    const problem = mockProblems.find((p) => p.id === problemId);
+    if (!problem) {
+      throw new Error("Problem not found");
+    }
+    return problem;
   } catch (error) {
     console.error("Error fetching problem:", error);
     throw error;
@@ -25,8 +18,9 @@ export const getRecommendedProblem = async (
   userId: string
 ): Promise<Problem> => {
   try {
-    const response = await api.get(`/recommend?user_id=${userId}`);
-    return response.data;
+    // For now, just return a random problem from mock data
+    const randomIndex = Math.floor(Math.random() * mockProblems.length);
+    return mockProblems[randomIndex];
   } catch (error) {
     console.error("Error getting recommended problem:", error);
     throw error;
@@ -39,12 +33,16 @@ export const submitAnswer = async (
   userId: string
 ): Promise<{ isCorrect: boolean; score: number }> => {
   try {
-    const response = await api.post("/submit-answer", {
-      problemId,
-      answer,
-      userId,
-    });
-    return response.data;
+    const problem = mockProblems.find((p) => p.id === problemId);
+    if (!problem) {
+      throw new Error("Problem not found");
+    }
+
+    const isCorrect = problem.options[problem.correctAnswer] === answer;
+    return {
+      isCorrect,
+      score: isCorrect ? problem.points : 0,
+    };
   } catch (error) {
     console.error("Error submitting answer:", error);
     throw error;

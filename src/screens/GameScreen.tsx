@@ -1,14 +1,15 @@
 import React, { useEffect, useState } from "react";
-import { View, StyleSheet, ScrollView } from "react-native";
+import { View, StyleSheet, ScrollView, Text } from "react-native";
 import { useTheme } from "../theme/ThemeProvider";
 import { useGameState } from "../context/GameStateProvider";
 import { useAudio } from "../context/AudioProvider";
 import ScreenTransition from "../components/ScreenTransition";
 import GameStatus from "../components/GameStatus";
-import ProblemCard from "../components/ProblemCard";
+import { ProblemCard } from "../components/ProblemCard";
 import DailyReward from "../components/DailyReward";
 import AudioSettings from "../components/AudioSettings";
 import { mockProblems } from "../data/mockProblems";
+import { Problem } from "../types/Problem";
 
 const GameScreen: React.FC = () => {
   const theme = useTheme();

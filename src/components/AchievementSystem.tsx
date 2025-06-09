@@ -87,7 +87,7 @@ export const AchievementSystem: React.FC<AchievementSystemProps> = ({
       case "silver":
         return "#C0C0C0";
       case "gold":
-        return colors.gold;
+        return colors.warning.main;
       case "platinum":
         return "#E5E4E2";
       case "legendary":
@@ -401,10 +401,10 @@ const AchievementModal: React.FC<{
   );
 };
 
-// Función para generar logros predefinidos
+// ✅ FUNCIÓN MEJORADA PARA GENERAR LOGROS CONTEXTUALES POR ESCENA
 export const generateDefaultAchievements = (): Achievement[] => {
   return [
-    // Progresión
+    // ✅ PROGRESIÓN BÁSICA
     {
       id: "first_steps",
       title: "Primeros Pasos",
@@ -438,10 +438,10 @@ export const generateDefaultAchievements = (): Achievement[] => {
       progress: 0,
     },
     {
-      id: "math_wizard",
-      title: "Mago Matemático",
+      id: "century_club",
+      title: "Club del Centenar",
       description: "Resuelve 100 problemas correctamente",
-      emoji: "🧙‍♂️",
+      emoji: "💯",
       category: "progression",
       difficulty: "gold",
       requirements: {
@@ -449,12 +449,142 @@ export const generateDefaultAchievements = (): Achievement[] => {
         value: 100,
         description: "Resolver 100 problemas",
       },
-      reward: { xp: 500, stars: 5, special: "Tema mágico desbloqueado" },
+      reward: { xp: 500, stars: 5, special: "Badge de élite matemática" },
       unlocked: false,
       progress: 0,
     },
 
-    // Maestría
+    // ✅ LOGROS CONTEXTUALES POR ESCENA
+    {
+      id: "entrance_explorer",
+      title: "Explorador de la Entrada",
+      description: "Completa 5 problemas en la Entrada Principal",
+      emoji: "🚪",
+      category: "special",
+      difficulty: "bronze",
+      requirements: {
+        type: "scene_entrance_problems",
+        value: 5,
+        description: "5 problemas en Entrada Principal",
+      },
+      reward: { xp: 100, stars: 2, special: "Llave de bienvenida" },
+      unlocked: false,
+      progress: 0,
+    },
+    {
+      id: "golden_scholar",
+      title: "Erudito Dorado",
+      description: "Domina la Sala Dorada con precisión perfecta",
+      emoji: "🏆",
+      category: "special",
+      difficulty: "silver",
+      requirements: {
+        type: "scene_golden_perfection",
+        value: 3,
+        description: "3 problemas perfectos en Sala Dorada",
+      },
+      reward: { xp: 200, stars: 4, special: "Corona dorada" },
+      unlocked: false,
+      progress: 0,
+    },
+    {
+      id: "spiral_master",
+      title: "Maestro del Espiral",
+      description: "Navega el Túnel Espiral sin errores",
+      emoji: "🌪️",
+      category: "special",
+      difficulty: "silver",
+      requirements: {
+        type: "scene_spiral_flawless",
+        value: 5,
+        description: "5 problemas sin errores en Túnel Espiral",
+      },
+      reward: { xp: 250, stars: 5, special: "Brújula mágica" },
+      unlocked: false,
+      progress: 0,
+    },
+    {
+      id: "tower_climber",
+      title: "Escalador de Torre",
+      description: "Asciende la Torre del Saber paso a paso",
+      emoji: "🗼",
+      category: "special",
+      difficulty: "gold",
+      requirements: {
+        type: "scene_tower_completion",
+        value: 1,
+        description: "Completar Torre del Saber",
+      },
+      reward: { xp: 300, stars: 6, special: "Cetro de sabiduría" },
+      unlocked: false,
+      progress: 0,
+    },
+    {
+      id: "crystal_hunter",
+      title: "Cazador de Cristales",
+      description: "Descubre todos los cristales en la Caverna",
+      emoji: "💎",
+      category: "special",
+      difficulty: "gold",
+      requirements: {
+        type: "scene_crystal_collection",
+        value: 8,
+        description: "8 cristales en Caverna Cristalina",
+      },
+      reward: { xp: 350, stars: 7, special: "Gema del poder" },
+      unlocked: false,
+      progress: 0,
+    },
+    {
+      id: "flame_forger",
+      title: "Forjador de Llamas",
+      description: "Forja tu mente en la Cámara de Fuego",
+      emoji: "⚒️",
+      category: "special",
+      difficulty: "platinum",
+      requirements: {
+        type: "scene_fire_mastery",
+        value: 10,
+        description: "10 problemas en Cámara de Fuego",
+      },
+      reward: { xp: 400, stars: 8, special: "Martillo legendario" },
+      unlocked: false,
+      progress: 0,
+    },
+    {
+      id: "ice_conqueror",
+      title: "Conquistador de Hielo",
+      description: "Conquista las cumbres heladas del intelecto",
+      emoji: "🧊",
+      category: "special",
+      difficulty: "platinum",
+      requirements: {
+        type: "scene_ice_conquest",
+        value: 12,
+        description: "12 problemas en Cámara de Hielo",
+      },
+      reward: { xp: 500, stars: 9, special: "Cristal de hielo eterno" },
+      unlocked: false,
+      progress: 0,
+    },
+    {
+      id: "minotaur_slayer",
+      title: "Cazador del Minotauro",
+      description: "Derrota al Minotauro en su propio trono",
+      emoji: "🐂",
+      category: "special",
+      difficulty: "legendary",
+      requirements: {
+        type: "scene_boss_final",
+        value: 1,
+        description: "Derrotar al Minotauro final",
+      },
+      reward: { xp: 1000, stars: 15, special: "Corona del Minotauro" },
+      unlocked: false,
+      progress: 0,
+    },
+
+    // ✅ MAESTRÍA AVANZADA
     {
       id: "speed_demon",
       title: "Demonio de la Velocidad",
@@ -487,21 +617,53 @@ export const generateDefaultAchievements = (): Achievement[] => {
       unlocked: false,
       progress: 0,
     },
-
-    // Constancia
     {
-      id: "daily_grind",
-      title: "Rutina Diaria",
-      description: "Juega durante 7 días consecutivos",
+      id: "lightning_calculator",
+      title: "Calculadora Relámpago",
+      description: "Resuelve 5 problemas en menos de 3 segundos cada uno",
+      emoji: "⚡",
+      category: "mastery",
+      difficulty: "platinum",
+      requirements: {
+        type: "ultra_speed_streak",
+        value: 5,
+        description: "5 problemas en menos de 3 segundos",
+      },
+      reward: { xp: 500, stars: 8, special: "Aura de velocidad" },
+      unlocked: false,
+      progress: 0,
+    },
+
+    // ✅ CONSTANCIA MEJORADA
+    {
+      id: "daily_visitor",
+      title: "Visitante Diario",
+      description: "Juega durante 3 días consecutivos",
       emoji: "📅",
       category: "consistency",
       difficulty: "bronze",
       requirements: {
         type: "daily_streak",
+        value: 3,
+        description: "3 días consecutivos",
+      },
+      reward: { xp: 100, stars: 2 },
+      unlocked: false,
+      progress: 0,
+    },
+    {
+      id: "weekly_warrior",
+      title: "Guerrero Semanal",
+      description: "Juega durante 7 días consecutivos",
+      emoji: "🗡️",
+      category: "consistency",
+      difficulty: "silver",
+      requirements: {
+        type: "daily_streak",
         value: 7,
         description: "7 días consecutivos",
       },
-      reward: { xp: 200, stars: 3 },
+      reward: { xp: 200, stars: 4, special: "Espada de constancia" },
       unlocked: false,
       progress: 0,
     },
@@ -521,21 +683,53 @@ export const generateDefaultAchievements = (): Achievement[] => {
       unlocked: false,
       progress: 0,
     },
-
-    // Especiales
     {
-      id: "first_boss",
-      title: "Cazador de Jefes",
-      description: "Derrota tu primer jefe final",
-      emoji: "🐉",
-      category: "special",
-      difficulty: "gold",
+      id: "year_champion",
+      title: "Campeón del Año",
+      description: "Mantén tu racha por 365 días",
+      emoji: "👑",
+      category: "consistency",
+      difficulty: "legendary",
       requirements: {
-        type: "boss_defeated",
-        value: 1,
-        description: "Derrotar 1 jefe final",
+        type: "daily_streak",
+        value: 365,
+        description: "365 días consecutivos",
       },
-      reward: { xp: 500, stars: 5, special: "Título de héroe" },
+      reward: { xp: 5000, stars: 50, special: "Corona eterna del aprendizaje" },
+      unlocked: false,
+      progress: 0,
+    },
+
+    // ✅ SOCIALES Y ESPECIALES
+    {
+      id: "comeback_kid",
+      title: "El Que Regresa",
+      description: "Recupera tu racha perdida usando un congelador",
+      emoji: "❄️",
+      category: "special",
+      difficulty: "bronze",
+      requirements: {
+        type: "streak_freeze_used",
+        value: 1,
+        description: "Usar 1 congelador de racha",
+      },
+      reward: { xp: 100, stars: 2, special: "Segunda oportunidad" },
+      unlocked: false,
+      progress: 0,
+    },
+    {
+      id: "mission_specialist",
+      title: "Especialista en Misiones",
+      description: "Completa 10 misiones diarias",
+      emoji: "🎯",
+      category: "special",
+      difficulty: "silver",
+      requirements: {
+        type: "daily_missions_completed",
+        value: 10,
+        description: "10 misiones diarias completadas",
+      },
+      reward: { xp: 300, stars: 5, special: "Insignia de especialista" },
       unlocked: false,
       progress: 0,
     },
@@ -552,6 +746,22 @@ export const generateDefaultAchievements = (): Achievement[] => {
         description: "Encontrar 10 secretos",
       },
       reward: { xp: 2000, stars: 15, special: "Mapa del tesoro dorado" },
+      unlocked: false,
+      progress: 0,
+    },
+    {
+      id: "math_sage",
+      title: "Sabio Matemático",
+      description: "Desbloquea todos los logros de todas las escenas",
+      emoji: "🧙‍♂️",
+      category: "special",
+      difficulty: "legendary",
+      requirements: {
+        type: "all_scene_achievements",
+        value: 8,
+        description: "Todos los logros de escena",
+      },
+      reward: { xp: 3000, stars: 25, special: "Título de Gran Maestro" },
       unlocked: false,
       progress: 0,
     },
@@ -732,7 +942,7 @@ const styles = StyleSheet.create({
   },
   specialRewardText: {
     ...typography.caption,
-    color: colors.accent,
+    color: colors.primary.main,
     fontWeight: "600",
     marginTop: spacing.xs,
   },

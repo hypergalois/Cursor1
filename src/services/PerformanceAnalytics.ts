@@ -55,6 +55,15 @@ export interface PersonalizedMetrics {
   motivationalFactors: string[];
   burnoutRisk: number; // 0-1
   engagementLevel: number; // 0-1
+  // ✅ NUEVO: Métricas específicas por edad
+  ageGroup: "kids" | "teens" | "adults" | "seniors";
+  ageSpecificFactors: {
+    attentionSpanOptimal: number; // minutos
+    encouragementFrequency: "high" | "medium" | "low";
+    gamificationPreference: string[];
+    cognitiveLoadTolerance: "low" | "medium" | "high";
+    feedbackStyle: string;
+  };
 }
 
 class PerformanceAnalytics {
@@ -179,7 +188,33 @@ class PerformanceAnalytics {
     return session;
   }
 
-  // Generar insights personalizados
+  // ✅ NUEVO: Generar insights personalizados por edad
+  async generateAgeAwareInsights(
+    ageGroup: "kids" | "teens" | "adults" | "seniors"
+  ): Promise<LearningInsight[]> {
+    const sessions = await this.getRecentSessions(30);
+    const insights: LearningInsight[] = [];
+
+    // Insights base
+    const baseInsights = await this.generateInsights();
+
+    // Adaptarlos por edad
+    const ageAdaptedInsights = baseInsights.map((insight) =>
+      this.adaptInsightForAge(insight, ageGroup)
+    );
+    insights.push(...ageAdaptedInsights);
+
+    // Generar insights específicos por edad
+    const ageSpecificInsights = await this.generateAgeSpecificInsights(
+      sessions,
+      ageGroup
+    );
+    insights.push(...ageSpecificInsights);
+
+    return insights.sort((a, b) => b.confidence - a.confidence);
+  }
+
+  // Generar insights personalizados (método original mantenido)
   async generateInsights(): Promise<LearningInsight[]> {
     const sessions = await this.getRecentSessions(30); // Últimos 30 días
     const insights: LearningInsight[] = [];
@@ -245,7 +280,21 @@ class PerformanceAnalytics {
     return trends;
   }
 
-  // Obtener métricas personalizadas
+  // ✅ NUEVO: Obtener métricas personalizadas por edad
+  async getAgeAwarePersonalizedMetrics(
+    ageGroup: "kids" | "teens" | "adults" | "seniors"
+  ): Promise<PersonalizedMetrics> {
+    const sessions = await this.getRecentSessions(60);
+    const baseMetrics = await this.getPersonalizedMetrics();
+
+    return {
+      ...baseMetrics,
+      ageGroup,
+      ageSpecificFactors: this.calculateAgeSpecificFactors(sessions, ageGroup),
+    };
+  }
+
+  // Obtener métricas personalizadas (método original mantenido)
   async getPersonalizedMetrics(): Promise<PersonalizedMetrics> {
     const sessions = await this.getRecentSessions(60);
 
@@ -259,6 +308,15 @@ class PerformanceAnalytics {
       motivationalFactors: this.identifyMotivationalFactors(sessions),
       burnoutRisk: this.calculateBurnoutRisk(sessions),
       engagementLevel: this.calculateEngagementLevel(sessions),
+      // ✅ Valores por defecto para compatibilidad
+      ageGroup: "adults",
+      ageSpecificFactors: {
+        attentionSpanOptimal: 20,
+        encouragementFrequency: "medium",
+        gamificationPreference: ["progress", "efficiency"],
+        cognitiveLoadTolerance: "high",
+        feedbackStyle: "professional",
+      },
     };
   }
 
@@ -661,6 +719,208 @@ class PerformanceAnalytics {
       recentSessions.length;
 
     return Math.min((sessionFrequency + avgAccuracy + avgFocus) / 3, 1);
+  }
+
+  // ✅ NUEVO: Calcular factores específicos por edad
+  private calculateAgeSpecificFactors(
+    sessions: SessionMetrics[],
+    ageGroup: "kids" | "teens" | "adults" | "seniors"
+  ): any {
+    const avgSessionLength = this.calculateAverageSessionLength(sessions);
+    const engagementLevel = this.calculateEngagementLevel(sessions);
+
+    switch (ageGroup) {
+      case "kids":
+        return {
+          attentionSpanOptimal: Math.min(15, avgSessionLength * 0.8), // Máximo 15 minutos
+          encouragementFrequency: engagementLevel < 0.6 ? "high" : "medium",
+          gamificationPreference: [
+            "stickers",
+            "animations",
+            "rewards",
+            "characters",
+          ],
+          cognitiveLoadTolerance: "low",
+          feedbackStyle: "enthusiastic",
+        };
+
+      case "teens":
+        return {
+          attentionSpanOptimal: Math.min(25, avgSessionLength * 0.9), // Máximo 25 minutos
+          encouragementFrequency: engagementLevel < 0.5 ? "medium" : "low",
+          gamificationPreference: [
+            "achievements",
+            "leaderboards",
+            "challenges",
+            "streaks",
+          ],
+          cognitiveLoadTolerance: "medium",
+          feedbackStyle: "cool",
+        };
+
+      case "adults":
+        return {
+          attentionSpanOptimal: Math.min(30, avgSessionLength), // Hasta 30 minutos
+          encouragementFrequency: "low",
+          gamificationPreference: [
+            "progress",
+            "efficiency",
+            "mastery",
+            "insights",
+          ],
+          cognitiveLoadTolerance: "high",
+          feedbackStyle: "professional",
+        };
+
+      case "seniors":
+        return {
+          attentionSpanOptimal: Math.min(20, avgSessionLength * 1.2), // Más flexible
+          encouragementFrequency: "medium",
+          gamificationPreference: [
+            "wisdom",
+            "reflection",
+            "mastery",
+            "teaching",
+          ],
+          cognitiveLoadTolerance: "medium",
+          feedbackStyle: "respectful",
+        };
+
+      default:
+        return {
+          attentionSpanOptimal: 20,
+          encouragementFrequency: "medium",
+          gamificationPreference: ["progress"],
+          cognitiveLoadTolerance: "medium",
+          feedbackStyle: "neutral",
+        };
+    }
+  }
+
+  // ✅ NUEVO: Adaptar insight existente para edad específica
+  private adaptInsightForAge(
+    insight: LearningInsight,
+    ageGroup: "kids" | "teens" | "adults" | "seniors"
+  ): LearningInsight {
+    const adaptations = {
+      kids: {
+        titlePrefix: "🌟 ",
+        descriptionStyle: "¡",
+        actionStyle: "Vamos a ",
+        encouragement: " ¡Tú puedes hacerlo!",
+      },
+      teens: {
+        titlePrefix: "🔥 ",
+        descriptionStyle: "",
+        actionStyle: "Challenge: ",
+        encouragement: " You got this! 💪",
+      },
+      adults: {
+        titlePrefix: "",
+        descriptionStyle: "",
+        actionStyle: "Estrategia: ",
+        encouragement: "",
+      },
+      seniors: {
+        titlePrefix: "🌟 ",
+        descriptionStyle: "",
+        actionStyle: "Consejo: ",
+        encouragement: " Su experiencia es valiosa.",
+      },
+    };
+
+    const style = adaptations[ageGroup];
+
+    return {
+      ...insight,
+      title: style.titlePrefix + insight.title,
+      description:
+        style.descriptionStyle + insight.description + style.encouragement,
+      suggestedActions: insight.suggestedActions.map(
+        (action) => style.actionStyle + action
+      ),
+    };
+  }
+
+  // ✅ NUEVO: Generar insights específicos por edad
+  private async generateAgeSpecificInsights(
+    sessions: SessionMetrics[],
+    ageGroup: "kids" | "teens" | "adults" | "seniors"
+  ): Promise<LearningInsight[]> {
+    const insights: LearningInsight[] = [];
+    const avgSessionLength = this.calculateAverageSessionLength(sessions);
+    const engagementLevel = this.calculateEngagementLevel(sessions);
+
+    switch (ageGroup) {
+      case "kids":
+        if (avgSessionLength > 15) {
+          insights.push({
+            type: "recommendation",
+            title: "Sesiones más cortitas",
+            description: "¡Las sesiones más cortas son más divertidas para ti!",
+            confidence: 0.8,
+            actionable: true,
+            suggestedActions: [
+              "Jugar 10-15 minutos cada vez",
+              "Tomar descansos con juegos",
+            ],
+            priority: "medium",
+          });
+        }
+        break;
+
+      case "teens":
+        if (engagementLevel < 0.5) {
+          insights.push({
+            type: "recommendation",
+            title: "Desafíos más geniales",
+            description:
+              "Te gustan los retos que ponen a prueba tus habilidades",
+            confidence: 0.7,
+            actionable: true,
+            suggestedActions: [
+              "Intentar problemas más difíciles",
+              "Competir con amigos",
+            ],
+            priority: "high",
+          });
+        }
+        break;
+
+      case "adults":
+        if (avgSessionLength > 30) {
+          insights.push({
+            type: "recommendation",
+            title: "Optimización de tiempo",
+            description: "Sesiones más cortas pueden ser más efectivas",
+            confidence: 0.9,
+            actionable: true,
+            suggestedActions: [
+              "Sesiones de 20-25 minutos",
+              "Enfoque en calidad sobre cantidad",
+            ],
+            priority: "medium",
+          });
+        }
+        break;
+
+      case "seniors":
+        insights.push({
+          type: "strength",
+          title: "Sabiduría y paciencia",
+          description: "Su enfoque reflexivo es una gran fortaleza",
+          confidence: 0.9,
+          actionable: true,
+          suggestedActions: [
+            "Aprovechar su experiencia",
+            "Tomar el tiempo necesario",
+          ],
+          priority: "low",
+        });
+        break;
+    }
+
+    return insights;
   }
 
   // Métodos de persistencia

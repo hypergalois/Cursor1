@@ -1,5 +1,5 @@
-import React, { useEffect, useRef } from "react";
-import { View, Text, StyleSheet, Animated } from "react-native";
+import React, { useEffect, useRef, useState } from "react";
+import { View, Text, StyleSheet, Animated, Dimensions } from "react-native";
 import {
   colors,
   spacing,
@@ -9,101 +9,617 @@ import {
 } from "../styles/theme";
 
 interface MinoMascotProps {
-  mood?: "happy" | "neutral" | "sad";
+  mood?:
+    | "happy"
+    | "neutral"
+    | "sad"
+    | "excited"
+    | "thinking"
+    | "celebrating"
+    | "sleepy"
+    | "surprised"
+    | "focused"
+    | "proud";
   size?: number;
+  ageGroup?: "kids" | "teens" | "adults" | "seniors";
+  showThoughts?: boolean;
+  isInteractive?: boolean;
+  context?: "welcome" | "problem" | "result" | "profile" | "achievement";
 }
+
+const { width } = Dimensions.get("window");
 
 const MinoMascot: React.FC<MinoMascotProps> = ({
   mood = "neutral",
   size = 200,
+  ageGroup = "adults",
+  showThoughts = false,
+  isInteractive = false,
+  context = "welcome",
 }) => {
+  const [currentExpression, setCurrentExpression] = useState(mood);
+  const [isBlinking, setIsBlinking] = useState(false);
+
+  // Animaciones principales
   const bounceAnim = useRef(new Animated.Value(0)).current;
-  const scaleAnim = useRef(new Animated.Value(0.8)).current;
+  const scaleAnim = useRef(new Animated.Value(1)).current;
   const rotateAnim = useRef(new Animated.Value(0)).current;
+  const glowAnim = useRef(new Animated.Value(0)).current;
+  const thoughtAnim = useRef(new Animated.Value(0)).current;
+
+  // Animaciones de personalidad
+  const eyeBlinkAnim = useRef(new Animated.Value(1)).current;
+  const heartBeatAnim = useRef(new Animated.Value(1)).current;
+  const sparkleAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    // Animación de entrada con escala
-    Animated.spring(scaleAnim, {
-      toValue: 1,
-      ...animations.spring,
-      useNativeDriver: true,
-    }).start();
+    setCurrentExpression(mood);
 
-    // Animación de rebote continua
-    const bounceAnimation = Animated.loop(
+    // Animaciones base según el estado de ánimo
+    startMoodAnimations();
+
+    // Parpadeo natural
+    startBlinkingAnimation();
+
+    // Animaciones específicas por edad
+    startAgeSpecificAnimations();
+  }, [mood, ageGroup]);
+
+  const startMoodAnimations = () => {
+    // Detener animaciones previas
+    bounceAnim.stopAnimation();
+    scaleAnim.stopAnimation();
+    rotateAnim.stopAnimation();
+    glowAnim.stopAnimation();
+
+    switch (mood) {
+      case "happy":
+        startHappyAnimations();
+        break;
+      case "excited":
+        startExcitedAnimations();
+        break;
+      case "celebrating":
+        startCelebratingAnimations();
+        break;
+      case "thinking":
+        startThinkingAnimations();
+        break;
+      case "proud":
+        startProudAnimations();
+        break;
+      case "surprised":
+        startSurprisedAnimations();
+        break;
+      case "focused":
+        startFocusedAnimations();
+        break;
+      case "sleepy":
+        startSleepyAnimations();
+        break;
+      case "sad":
+        startSadAnimations();
+        break;
+      default:
+        startNeutralAnimations();
+    }
+  };
+
+  const startHappyAnimations = () => {
+    // Rebote suave y continuo
+    Animated.loop(
       Animated.sequence([
         Animated.timing(bounceAnim, {
           toValue: -8,
-          duration: 2000,
+          duration: 1000,
           useNativeDriver: true,
         }),
         Animated.timing(bounceAnim, {
+          toValue: 0,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+
+    // Brillo sutil
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(glowAnim, {
+          toValue: 1,
+          duration: 2000,
+          useNativeDriver: true,
+        }),
+        Animated.timing(glowAnim, {
           toValue: 0,
           duration: 2000,
           useNativeDriver: true,
         }),
       ])
-    );
+    ).start();
+  };
 
-    // Animación de rotación sutil
-    const rotateAnimation = Animated.loop(
+  const startExcitedAnimations = () => {
+    // Rebote más rápido y energético
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(bounceAnim, {
+          toValue: -12,
+          duration: 600,
+          useNativeDriver: true,
+        }),
+        Animated.timing(bounceAnim, {
+          toValue: 0,
+          duration: 600,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+
+    // Vibración lateral sutil
+    Animated.loop(
       Animated.sequence([
         Animated.timing(rotateAnim, {
           toValue: 1,
-          duration: 4000,
+          duration: 300,
           useNativeDriver: true,
         }),
         Animated.timing(rotateAnim, {
           toValue: -1,
-          duration: 4000,
+          duration: 300,
           useNativeDriver: true,
         }),
         Animated.timing(rotateAnim, {
           toValue: 0,
-          duration: 4000,
+          duration: 300,
           useNativeDriver: true,
         }),
       ])
-    );
+    ).start();
 
-    bounceAnimation.start();
-    rotateAnimation.start();
+    // Sparkles
+    startSparkleAnimation();
+  };
 
-    return () => {
-      bounceAnimation.stop();
-      rotateAnimation.stop();
-    };
-  }, []);
+  const startCelebratingAnimations = () => {
+    // Salto de celebración
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(bounceAnim, {
+          toValue: -20,
+          duration: 400,
+          useNativeDriver: true,
+        }),
+        Animated.timing(bounceAnim, {
+          toValue: 0,
+          duration: 400,
+          useNativeDriver: true,
+        }),
+        Animated.delay(200),
+      ])
+    ).start();
 
-  const getMascotEmoji = () => {
-    switch (mood) {
-      case "happy":
-        return "🐂";
-      case "sad":
-        return "😔";
-      default:
-        return "🐃";
+    // Escalado pulsante
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(scaleAnim, {
+          toValue: 1.1,
+          duration: 500,
+          useNativeDriver: true,
+        }),
+        Animated.timing(scaleAnim, {
+          toValue: 1,
+          duration: 500,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+
+    startSparkleAnimation();
+  };
+
+  const startThinkingAnimations = () => {
+    // Balanceo pensativo
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(rotateAnim, {
+          toValue: 1,
+          duration: 1500,
+          useNativeDriver: true,
+        }),
+        Animated.timing(rotateAnim, {
+          toValue: -1,
+          duration: 1500,
+          useNativeDriver: true,
+        }),
+        Animated.timing(rotateAnim, {
+          toValue: 0,
+          duration: 1500,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+
+    // Mostrar burbujas de pensamiento
+    if (showThoughts) {
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(thoughtAnim, {
+            toValue: 1,
+            duration: 1000,
+            useNativeDriver: true,
+          }),
+          Animated.timing(thoughtAnim, {
+            toValue: 0,
+            duration: 1000,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
     }
   };
 
-  const getMoodColor = () => {
-    switch (mood) {
-      case "happy":
-        return colors.success.main;
-      case "sad":
-        return colors.error.main;
-      default:
-        return colors.primary.main;
+  const startProudAnimations = () => {
+    // Postura erguida y orgullosa
+    Animated.timing(scaleAnim, {
+      toValue: 1.05,
+      duration: 1000,
+      useNativeDriver: true,
+    }).start();
+
+    // Brillo dorado
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(glowAnim, {
+          toValue: 1,
+          duration: 1500,
+          useNativeDriver: true,
+        }),
+        Animated.timing(glowAnim, {
+          toValue: 0.5,
+          duration: 1500,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+  };
+
+  const startSurprisedAnimations = () => {
+    // Salto de sorpresa único
+    Animated.sequence([
+      Animated.timing(bounceAnim, {
+        toValue: -15,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+      Animated.timing(scaleAnim, {
+        toValue: 1.1,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+      Animated.timing(bounceAnim, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+      Animated.timing(scaleAnim, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  };
+
+  const startFocusedAnimations = () => {
+    // Respiración concentrada
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(scaleAnim, {
+          toValue: 1.02,
+          duration: 2000,
+          useNativeDriver: true,
+        }),
+        Animated.timing(scaleAnim, {
+          toValue: 1,
+          duration: 2000,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+
+    // Reduce el parpadeo cuando está concentrado
+    setIsBlinking(false);
+  };
+
+  const startSleepyAnimations = () => {
+    // Balanceo lento
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(rotateAnim, {
+          toValue: 0.5,
+          duration: 3000,
+          useNativeDriver: true,
+        }),
+        Animated.timing(rotateAnim, {
+          toValue: -0.5,
+          duration: 3000,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+
+    // Parpadeo más lento
+    setIsBlinking(true);
+  };
+
+  const startSadAnimations = () => {
+    // Caída lenta
+    Animated.timing(scaleAnim, {
+      toValue: 0.95,
+      duration: 1000,
+      useNativeDriver: true,
+    }).start();
+
+    // Balanceo triste
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(rotateAnim, {
+          toValue: -0.5,
+          duration: 2000,
+          useNativeDriver: true,
+        }),
+        Animated.timing(rotateAnim, {
+          toValue: 0,
+          duration: 2000,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+  };
+
+  const startNeutralAnimations = () => {
+    // Respiración natural
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(bounceAnim, {
+          toValue: -3,
+          duration: 2500,
+          useNativeDriver: true,
+        }),
+        Animated.timing(bounceAnim, {
+          toValue: 0,
+          duration: 2500,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+  };
+
+  const startSparkleAnimation = () => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(sparkleAnim, {
+          toValue: 1,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+        Animated.timing(sparkleAnim, {
+          toValue: 0,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+  };
+
+  const startBlinkingAnimation = () => {
+    if (!isBlinking) return;
+
+    const blink = () => {
+      Animated.sequence([
+        Animated.timing(eyeBlinkAnim, {
+          toValue: 0.1,
+          duration: 100,
+          useNativeDriver: true,
+        }),
+        Animated.timing(eyeBlinkAnim, {
+          toValue: 1,
+          duration: 100,
+          useNativeDriver: true,
+        }),
+      ]).start();
+
+      // Parpadeo aleatorio cada 2-5 segundos
+      setTimeout(blink, Math.random() * 3000 + 2000);
+    };
+
+    setTimeout(blink, 1000);
+  };
+
+  const startAgeSpecificAnimations = () => {
+    switch (ageGroup) {
+      case "kids":
+        // Más energético y juguetón
+        if (mood === "happy" || mood === "excited") {
+          startHeartBeatAnimation();
+        }
+        break;
+      case "teens":
+        // Más cool y moderno
+        break;
+      case "adults":
+        // Profesional pero amigable
+        break;
+      case "seniors":
+        // Más lento y gentil
+        // Reducir velocidad de todas las animaciones
+        break;
     }
+  };
+
+  const startHeartBeatAnimation = () => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(heartBeatAnim, {
+          toValue: 1.05,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+        Animated.timing(heartBeatAnim, {
+          toValue: 1,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+        Animated.timing(heartBeatAnim, {
+          toValue: 1.05,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+        Animated.timing(heartBeatAnim, {
+          toValue: 1,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+  };
+
+  // Obtener emoji según mood y ageGroup
+  const getMascotEmoji = () => {
+    const expressions = {
+      kids: {
+        happy: "🐂",
+        excited: "🤩",
+        celebrating: "🎉",
+        thinking: "🤔",
+        proud: "😊",
+        surprised: "😮",
+        focused: "😤",
+        sleepy: "😴",
+        sad: "😢",
+        neutral: "🐃",
+      },
+      teens: {
+        happy: "😄",
+        excited: "🤯",
+        celebrating: "🥳",
+        thinking: "🧐",
+        proud: "😎",
+        surprised: "😲",
+        focused: "🎯",
+        sleepy: "😪",
+        sad: "😔",
+        neutral: "🐃",
+      },
+      adults: {
+        happy: "🐂",
+        excited: "😃",
+        celebrating: "🎊",
+        thinking: "🤓",
+        proud: "👨‍🎓",
+        surprised: "😯",
+        focused: "🧠",
+        sleepy: "😴",
+        sad: "😞",
+        neutral: "🐃",
+      },
+      seniors: {
+        happy: "🐂",
+        excited: "😊",
+        celebrating: "🎉",
+        thinking: "🧐",
+        proud: "👴",
+        surprised: "😮",
+        focused: "🤓",
+        sleepy: "😴",
+        sad: "😢",
+        neutral: "🐃",
+      },
+    };
+
+    return (
+      expressions[ageGroup][currentExpression] || expressions[ageGroup].neutral
+    );
+  };
+
+  // Obtener color del aura según mood
+  const getAuraColor = () => {
+    const auraColors = {
+      happy: colors.success.main,
+      excited: colors.duolingo.orange,
+      celebrating: colors.duolingo.gold,
+      thinking: colors.duolingo.purple,
+      proud: colors.duolingo.gold,
+      surprised: colors.duolingo.blue,
+      focused: colors.primary.main,
+      sleepy: colors.text.light,
+      sad: colors.text.secondary,
+      neutral: colors.primary.main,
+    };
+    return auraColors[currentExpression];
+  };
+
+  // Obtener efectos especiales
+  const getSpecialEffects = () => {
+    const effects = [];
+
+    if (mood === "celebrating" || mood === "excited") {
+      effects.push(
+        <Animated.View
+          key="sparkles"
+          style={[styles.sparkles, { opacity: sparkleAnim }]}
+        >
+          <Text style={[styles.sparkle, styles.sparkle1]}>✨</Text>
+          <Text style={[styles.sparkle, styles.sparkle2]}>⭐</Text>
+          <Text style={[styles.sparkle, styles.sparkle3]}>💫</Text>
+          <Text style={[styles.sparkle, styles.sparkle4]}>🌟</Text>
+        </Animated.View>
+      );
+    }
+
+    if (mood === "thinking" && showThoughts) {
+      effects.push(
+        <Animated.View
+          key="thoughts"
+          style={[styles.thoughtBubbles, { opacity: thoughtAnim }]}
+        >
+          <Text style={styles.thoughtBubble1}>💭</Text>
+          <Text style={styles.thoughtBubble2}>💭</Text>
+          <Text style={styles.thoughtBubble3}>💭</Text>
+        </Animated.View>
+      );
+    }
+
+    if (mood === "proud") {
+      effects.push(
+        <Animated.View
+          key="glow"
+          style={[
+            styles.glowEffect,
+            {
+              opacity: glowAnim,
+              borderColor: colors.duolingo.gold,
+            },
+          ]}
+        />
+      );
+    }
+
+    return effects;
   };
 
   const rotate = rotateAnim.interpolate({
     inputRange: [-1, 1],
-    outputRange: ["-5deg", "5deg"],
+    outputRange: ["-3deg", "3deg"],
+  });
+
+  const glowOpacity = glowAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.2, 0.6],
   });
 
   return (
-    <View style={[styles.container, { width: size + 20, height: size + 20 }]}>
+    <View style={[styles.container, { width: size + 40, height: size + 40 }]}>
       <Animated.View
         style={[
           styles.mascotWrapper,
@@ -113,26 +629,27 @@ const MinoMascot: React.FC<MinoMascotProps> = ({
             borderRadius: size / 2,
             transform: [
               { translateY: bounceAnim },
-              { scale: scaleAnim },
+              { scale: Animated.multiply(scaleAnim, heartBeatAnim) },
               { rotate: rotate },
             ],
           },
         ]}
       >
-        {/* Círculo de fondo con gradiente visual */}
-        <View
+        {/* Aura/Background con color dinámico */}
+        <Animated.View
           style={[
             styles.background,
             {
               width: size,
               height: size,
               borderRadius: size / 2,
-              backgroundColor: getMoodColor(),
+              backgroundColor: getAuraColor(),
+              opacity: glowOpacity,
             },
           ]}
         />
 
-        {/* Círculo interior más claro */}
+        {/* Círculo interior */}
         <View
           style={[
             styles.innerCircle,
@@ -145,42 +662,35 @@ const MinoMascot: React.FC<MinoMascotProps> = ({
           ]}
         />
 
-        {/* Minotauro emoji */}
-        <Text style={[styles.mascot, { fontSize: size * 0.5 }]}>
+        {/* Minotauro emoji con animación de parpadeo */}
+        <Animated.Text
+          style={[
+            styles.mascot,
+            {
+              fontSize: size * 0.5,
+              transform: [{ scaleY: eyeBlinkAnim }],
+            },
+          ]}
+        >
           {getMascotEmoji()}
-        </Text>
+        </Animated.Text>
 
-        {/* Efectos decorativos */}
-        <View style={styles.sparkles}>
-          <Animated.View
-            style={[
-              styles.sparkle,
-              styles.sparkle1,
-              { transform: [{ scale: scaleAnim }] },
-            ]}
-          >
-            <Text style={styles.sparkleText}>✨</Text>
-          </Animated.View>
-          <Animated.View
-            style={[
-              styles.sparkle,
-              styles.sparkle2,
-              { transform: [{ scale: scaleAnim }] },
-            ]}
-          >
-            <Text style={styles.sparkleText}>⭐</Text>
-          </Animated.View>
-          <Animated.View
-            style={[
-              styles.sparkle,
-              styles.sparkle3,
-              { transform: [{ scale: scaleAnim }] },
-            ]}
-          >
-            <Text style={styles.sparkleText}>✨</Text>
-          </Animated.View>
-        </View>
+        {/* Efectos especiales dinámicos */}
+        {getSpecialEffects()}
       </Animated.View>
+
+      {/* Indicador de contexto para adultos/seniors */}
+      {(ageGroup === "adults" || ageGroup === "seniors") &&
+        context !== "welcome" && (
+          <View style={styles.contextIndicator}>
+            <Text style={styles.contextEmoji}>
+              {context === "problem" && "🧮"}
+              {context === "result" && "📊"}
+              {context === "profile" && "👤"}
+              {context === "achievement" && "🏆"}
+            </Text>
+          </View>
+        )}
     </View>
   );
 };
@@ -199,7 +709,6 @@ const styles = StyleSheet.create({
   },
   background: {
     position: "absolute",
-    opacity: 0.15,
   },
   innerCircle: {
     position: "absolute",
@@ -214,30 +723,79 @@ const styles = StyleSheet.create({
     textShadowRadius: 2,
     zIndex: 10,
   },
+
+  // Efectos especiales
   sparkles: {
     position: "absolute",
-    width: "120%",
-    height: "120%",
+    width: "150%",
+    height: "150%",
     pointerEvents: "none",
   },
   sparkle: {
     position: "absolute",
+    fontSize: 16,
   },
   sparkle1: {
-    top: "5%",
-    right: "5%",
+    top: "10%",
+    right: "10%",
   },
   sparkle2: {
-    bottom: "10%",
-    left: "10%",
+    bottom: "15%",
+    left: "15%",
   },
   sparkle3: {
-    top: "15%",
+    top: "20%",
     left: "5%",
   },
-  sparkleText: {
-    fontSize: 16,
-    opacity: 0.8,
+  sparkle4: {
+    bottom: "10%",
+    right: "5%",
+  },
+
+  thoughtBubbles: {
+    position: "absolute",
+    top: -20,
+    right: -10,
+    pointerEvents: "none",
+  },
+  thoughtBubble1: {
+    fontSize: 12,
+    position: "absolute",
+    top: -10,
+    right: 5,
+  },
+  thoughtBubble2: {
+    fontSize: 8,
+    position: "absolute",
+    top: -5,
+    right: 0,
+  },
+  thoughtBubble3: {
+    fontSize: 6,
+    position: "absolute",
+    top: 0,
+    right: -3,
+  },
+
+  glowEffect: {
+    position: "absolute",
+    width: "120%",
+    height: "120%",
+    borderRadius: 1000,
+    borderWidth: 3,
+  },
+
+  contextIndicator: {
+    position: "absolute",
+    bottom: -5,
+    right: -5,
+    backgroundColor: colors.background.paper,
+    borderRadius: 15,
+    padding: 4,
+    ...shadows.small,
+  },
+  contextEmoji: {
+    fontSize: 12,
   },
 });
 

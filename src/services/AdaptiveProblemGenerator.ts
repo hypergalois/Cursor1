@@ -3,6 +3,7 @@ import PerformanceAnalytics, {
   PersonalizedMetrics,
 } from "./PerformanceAnalytics";
 import AdaptiveDifficulty from "../utils/AdaptiveDifficulty";
+import { getThemeForAge } from "../styles/theme";
 
 export interface AdaptiveProblem {
   id: string;
@@ -21,22 +22,40 @@ export interface AdaptiveProblem {
     reinforceStrength: boolean;
     optimalTiming: boolean;
     personalizedStyle: boolean;
+    ageAppropriate: boolean;
+    cognitiveLoad: "low" | "medium" | "high";
+    contextualRelevance: boolean;
   };
   metadata: {
     conceptsInvolved: string[];
     prerequisiteSkills: string[];
     learningObjectives: string[];
     cognitiveLoad: number;
+    ageGroup: "kids" | "teens" | "adults" | "seniors";
+    realWorldContext?: string;
+    visualSupport: boolean;
+    gamificationElements: string[];
   };
 }
 
 export interface ProblemGenerationRequest {
   userId: string;
+  userProfile: {
+    ageGroup: "kids" | "teens" | "adults" | "seniors";
+    name: string;
+    preferences: {
+      highContrast: boolean;
+      largeText: boolean;
+      soundEnabled: boolean;
+      hapticsEnabled: boolean;
+    };
+  };
   sessionContext: {
     currentStreak: number;
     recentPerformance: number;
     timeSpent: number;
     categoriesPlayed: string[];
+    currentScene?: string;
   };
   preferences: {
     preferredCategories?: string[];
@@ -49,6 +68,9 @@ export interface ProblemGenerationRequest {
     reinforceStrengths: boolean;
     maintainEngagement: boolean;
     preventBurnout: boolean;
+    developConfidence: boolean;
+    encourageExploration: boolean;
+    buildFundamentalSkills: boolean;
   };
 }
 
@@ -72,6 +94,36 @@ export interface ProblemTemplate {
   };
   concepts: string[];
   prerequisites: string[];
+  ageConfigurations: {
+    kids: {
+      contextualThemes: string[];
+      maxCognitiveLoad: number;
+      visualElements: boolean;
+      gamificationLevel: "high" | "medium" | "low";
+      encouragementStyle: "enthusiastic" | "supportive" | "calm";
+    };
+    teens: {
+      contextualThemes: string[];
+      maxCognitiveLoad: number;
+      coolFactor: boolean;
+      competitiveElements: boolean;
+      encouragementStyle: "achievement" | "challenge" | "peer";
+    };
+    adults: {
+      contextualThemes: string[];
+      maxCognitiveLoad: number;
+      practicalApplications: boolean;
+      efficiency: boolean;
+      encouragementStyle: "professional" | "growth" | "practical";
+    };
+    seniors: {
+      contextualThemes: string[];
+      maxCognitiveLoad: number;
+      nostalgicElements: boolean;
+      clearInstructions: boolean;
+      encouragementStyle: "respectful" | "gentle" | "wise";
+    };
+  };
 }
 
 class AdaptiveProblemGenerator {
@@ -93,57 +145,52 @@ class AdaptiveProblemGenerator {
     this.initializeProblemTemplates();
   }
 
-  // Generar problema personalizado
-  async generateAdaptiveProblem(
+  async generateAgeAdaptiveProblem(
     request: ProblemGenerationRequest
   ): Promise<AdaptiveProblem> {
-    // Obtener insights del usuario
     const insights = await this.analytics.generateInsights();
     const personalizedMetrics = await this.analytics.getPersonalizedMetrics();
 
-    // Seleccionar estrategia de generación
-    const strategy = await this.selectGenerationStrategy(
+    const strategy = await this.selectAgeAwareGenerationStrategy(
       request,
       insights,
       personalizedMetrics
     );
 
-    // Seleccionar template apropiado
-    const template = this.selectTemplate(strategy);
+    const template = this.selectAgeAppropriateTemplate(
+      strategy,
+      request.userProfile.ageGroup
+    );
 
-    // Personalizar dificultad
-    const difficulty = this.calculateAdaptiveDifficulty(
+    const difficulty = this.calculateAgeAdaptiveDifficulty(
       request,
       personalizedMetrics
     );
 
-    // Generar problema
     const problem = await this.generateFromTemplate(
       template,
       difficulty,
       strategy
     );
 
-    // Añadir elementos adaptativos
-    const adaptiveProblem = await this.enhanceWithAdaptiveElements(
+    const adaptiveProblem = await this.enhanceWithAgeSpecificElements(
       problem,
       insights,
-      personalizedMetrics
+      personalizedMetrics,
+      request.userProfile
     );
 
     return adaptiveProblem;
   }
 
-  // Generar secuencia de problemas para sesión completa
-  async generateSessionSequence(
+  async generateAgeAwareSessionSequence(
     request: ProblemGenerationRequest,
     count: number
   ): Promise<AdaptiveProblem[]> {
     const problems: AdaptiveProblem[] = [];
     const personalizedMetrics = await this.analytics.getPersonalizedMetrics();
 
-    // Planificar secuencia adaptativa
-    const sequence = this.planSessionSequence(
+    const sequence = this.planAgeAwareSessionSequence(
       request,
       personalizedMetrics,
       count
@@ -158,10 +205,9 @@ class AdaptiveProblemGenerator {
         },
       };
 
-      const problem = await this.generateAdaptiveProblem(stepRequest);
+      const problem = await this.generateAgeAdaptiveProblem(stepRequest);
       problems.push(problem);
 
-      // Ajustar para siguiente problema basado en secuencia planificada
       if (sequence[i]) {
         problem.adaptiveFactors = {
           ...problem.adaptiveFactors,
@@ -173,93 +219,99 @@ class AdaptiveProblemGenerator {
     return problems;
   }
 
-  // Generar problema específico para debilidad detectada
-  async generateTargetedProblem(
-    weakness: LearningInsight
+  async generateAdaptiveProblem(
+    request: ProblemGenerationRequest
   ): Promise<AdaptiveProblem> {
-    const templates = this.problemTemplates.filter(
-      (t) =>
-        weakness.description.toLowerCase().includes(t.category.toLowerCase()) ||
-        weakness.description.toLowerCase().includes(t.operation.toLowerCase())
-    );
-
-    if (templates.length === 0) {
-      throw new Error(
-        `No templates found for weakness: ${weakness.description}`
-      );
-    }
-
-    const template = templates[0];
-    const difficulty = weakness.priority === "high" ? "easy" : "medium";
-
-    const problem = await this.generateFromTemplate(template, difficulty, {
-      type: "weakness_targeted",
-      focus: weakness.description,
-      supportLevel: "high",
-    });
-
-    // Añadir soporte adicional para debilidades
-    problem.hints = this.generateSupportiveHints(template, weakness);
-    problem.explanation = this.generateDetailedExplanation(template, weakness);
-
-    return problem;
+    return this.generateAgeAdaptiveProblem(request);
   }
 
-  // Seleccionar estrategia de generación basada en datos del usuario
-  private async selectGenerationStrategy(
+  async generateSessionSequence(
+    request: ProblemGenerationRequest,
+    count: number
+  ): Promise<AdaptiveProblem[]> {
+    return this.generateAgeAwareSessionSequence(request, count);
+  }
+
+  private async selectAgeAwareGenerationStrategy(
     request: ProblemGenerationRequest,
     insights: LearningInsight[],
     metrics: PersonalizedMetrics
   ): Promise<any> {
-    const strategy: any = {
-      type: "balanced",
-      focus: "general",
-      supportLevel: "medium",
-    };
-
-    // Analizar estado de burnout
-    if (metrics.burnoutRisk > 0.7) {
-      strategy.type = "engagement_focused";
-      strategy.supportLevel = "high";
-      strategy.difficulty = "easy";
-    }
-
-    // Analizar engagement bajo
-    if (metrics.engagementLevel < 0.4) {
-      strategy.type = "motivation_focused";
-      strategy.focus = "strengths";
-      strategy.variety = "high";
-    }
-
-    // Priorizar debilidades identificadas
-    const weaknesses = insights.filter(
-      (i) => i.type === "weakness" && i.priority === "high"
+    const baseStrategy = await this.selectGenerationStrategy(
+      request,
+      insights,
+      metrics
     );
-    if (weaknesses.length > 0 && request.adaptiveGoals.targetWeaknesses) {
-      strategy.type = "weakness_targeted";
-      strategy.focus = weaknesses[0].description;
-      strategy.supportLevel = "high";
-    }
+    const ageGroup = request.userProfile.ageGroup;
 
-    // Reforzar fortalezas para mantener confianza
-    const strengths = insights.filter((i) => i.type === "strength");
-    if (
-      request.sessionContext.recentPerformance < 0.6 &&
-      strengths.length > 0
-    ) {
-      strategy.type = "confidence_building";
-      strategy.focus = strengths[0].description;
-      strategy.difficulty = "easy";
-    }
+    switch (ageGroup) {
+      case "kids":
+        return {
+          ...baseStrategy,
+          playfulness: "high",
+          encouragement: "frequent",
+          visualSupport: true,
+          gameElements: ["rewards", "characters", "stories"],
+          attentionSpan: "short",
+          cognitiveLoadLimit: "low",
+        };
 
-    return strategy;
+      case "teens":
+        return {
+          ...baseStrategy,
+          coolFactor: "high",
+          competitiveElements: true,
+          achievementFocus: true,
+          socialRelevance: true,
+          attentionSpan: "medium",
+          cognitiveLoadLimit: "medium",
+        };
+
+      case "adults":
+        return {
+          ...baseStrategy,
+          efficiency: "high",
+          practicalApplications: true,
+          goalOriented: true,
+          timeOptimization: true,
+          attentionSpan: "flexible",
+          cognitiveLoadLimit: "high",
+        };
+
+      case "seniors":
+        return {
+          ...baseStrategy,
+          clarity: "maximum",
+          patience: "high",
+          respectful: true,
+          nostalgicElements: true,
+          attentionSpan: "flexible",
+          cognitiveLoadLimit: "medium",
+        };
+
+      default:
+        return baseStrategy;
+    }
   }
 
-  // Seleccionar template apropiado
-  private selectTemplate(strategy: any): ProblemTemplate {
-    let candidateTemplates = this.problemTemplates;
+  private selectAgeAppropriateTemplate(
+    strategy: any,
+    ageGroup: string
+  ): ProblemTemplate {
+    let candidateTemplates = this.problemTemplates.filter((template) => {
+      const ageConfig =
+        template.ageConfigurations[
+          ageGroup as keyof typeof template.ageConfigurations
+        ];
+      if (!ageConfig) return true;
 
-    // Filtrar por enfoque estratégico
+      const templateCognitiveLoad =
+        this.estimateTemplateCognitiveLoad(template);
+      if (templateCognitiveLoad > ageConfig.maxCognitiveLoad) return false;
+
+      return true;
+    });
+
     if (strategy.focus !== "general") {
       candidateTemplates = candidateTemplates.filter(
         (t) =>
@@ -268,127 +320,189 @@ class AdaptiveProblemGenerator {
       );
     }
 
-    // Si no hay templates específicos, usar cualquiera
     if (candidateTemplates.length === 0) {
       candidateTemplates = this.problemTemplates;
     }
 
-    // Seleccionar aleatoriamente de los candidatos
     const randomIndex = Math.floor(Math.random() * candidateTemplates.length);
     return candidateTemplates[randomIndex];
   }
 
-  // Calcular dificultad adaptativa
-  private calculateAdaptiveDifficulty(
+  private calculateAgeAdaptiveDifficulty(
     request: ProblemGenerationRequest,
     metrics: PersonalizedMetrics
   ): "easy" | "medium" | "hard" | "expert" {
-    const baseModifiers = this.adaptiveDifficulty.getDifficultyModifiers();
+    const baseDifficulty = this.calculateAdaptiveDifficulty(request, metrics);
+    const ageGroup = request.userProfile.ageGroup;
 
-    // Ajustar basado en rendimiento reciente
-    let targetDifficulty = "medium";
+    const difficultyLevels = ["easy", "medium", "hard", "expert"];
+    const currentIndex = difficultyLevels.indexOf(baseDifficulty);
 
-    if (request.sessionContext.recentPerformance > 0.8) {
-      targetDifficulty = baseModifiers.complexityLevel >= 3 ? "hard" : "medium";
-    } else if (request.sessionContext.recentPerformance < 0.5) {
-      targetDifficulty = "easy";
+    switch (ageGroup) {
+      case "kids":
+        if (currentIndex > 1) return "medium";
+        return baseDifficulty;
+
+      case "teens":
+        if (currentIndex > 2) return "hard";
+        return baseDifficulty;
+
+      case "adults":
+        return baseDifficulty;
+
+      case "seniors":
+        if (metrics.burnoutRisk > 0.5 && currentIndex > 1) {
+          return difficultyLevels[Math.max(0, currentIndex - 1)] as any;
+        }
+        return baseDifficulty;
+
+      default:
+        return baseDifficulty;
     }
-
-    // Considerar burnout risk
-    if (metrics.burnoutRisk > 0.6) {
-      targetDifficulty = "easy";
-    }
-
-    // Respetar preferencias máximas
-    if (request.preferences.maxDifficulty) {
-      const difficultyLevels = ["easy", "medium", "hard", "expert"];
-      const maxIndex = difficultyLevels.indexOf(
-        request.preferences.maxDifficulty
-      );
-      const currentIndex = difficultyLevels.indexOf(targetDifficulty);
-
-      if (currentIndex > maxIndex) {
-        targetDifficulty = request.preferences.maxDifficulty as any;
-      }
-    }
-
-    return targetDifficulty as "easy" | "medium" | "hard" | "expert";
   }
 
-  // Generar problema desde template
-  private async generateFromTemplate(
-    template: ProblemTemplate,
-    difficulty: string,
-    strategy: any
+  private async enhanceWithAgeSpecificElements(
+    problem: AdaptiveProblem,
+    insights: LearningInsight[],
+    metrics: PersonalizedMetrics,
+    userProfile: any
   ): Promise<AdaptiveProblem> {
-    const variables: { [key: string]: number } = {};
-    const difficultyRanges =
-      template.difficulty[difficulty as keyof typeof template.difficulty];
-
-    // Generar valores para variables
-    Object.entries(template.variables).forEach(([varName, config]) => {
-      const [min, max] = difficultyRanges[varName] || [config.min, config.max];
-
-      if (config.type === "integer") {
-        variables[varName] = Math.floor(Math.random() * (max - min + 1)) + min;
-      } else if (config.type === "decimal") {
-        variables[varName] =
-          Math.round((Math.random() * (max - min) + min) * 100) / 100;
-      }
-    });
-
-    // Generar problema usando template
-    let problemText = template.template;
-    Object.entries(variables).forEach(([varName, value]) => {
-      problemText = problemText.replace(
-        new RegExp(`{${varName}}`, "g"),
-        value.toString()
-      );
-    });
-
-    // Calcular respuesta correcta (simplificado)
-    const correctAnswer = this.calculateCorrectAnswer(template, variables);
-
-    // Generar opciones incorrectas
-    const options = this.generateOptions(correctAnswer, template, difficulty);
-
-    // Estimar tiempo basado en dificultad y template
-    const timeEstimate = this.estimateTimeRequired(
-      template,
-      difficulty,
-      strategy
+    const enhancedProblem = await this.enhanceWithAdaptiveElements(
+      problem,
+      insights,
+      metrics
     );
 
+    switch (userProfile.ageGroup) {
+      case "kids":
+        return this.enhanceForKids(enhancedProblem, userProfile);
+
+      case "teens":
+        return this.enhanceForTeens(enhancedProblem, userProfile);
+
+      case "adults":
+        return this.enhanceForAdults(enhancedProblem, userProfile);
+
+      case "seniors":
+        return this.enhanceForSeniors(enhancedProblem, userProfile);
+
+      default:
+        return enhancedProblem;
+    }
+  }
+
+  private enhanceForKids(
+    problem: AdaptiveProblem,
+    userProfile: any
+  ): AdaptiveProblem {
     return {
-      id: `${template.id}_${Date.now()}_${Math.random()
-        .toString(36)
-        .substr(2, 5)}`,
-      type: template.operation,
-      category: template.category,
-      difficulty: difficulty as any,
-      operation: template.operation,
-      problem: problemText,
-      options,
-      correctAnswer,
-      explanation: this.generateExplanation(template, variables, correctAnswer),
-      hints: this.generateHints(template, variables, strategy),
-      timeEstimate,
+      ...problem,
+      problem: this.addPlayfulContext(problem.problem),
+      explanation: this.makeExplanationFriendly(problem.explanation, "kids"),
+      hints: problem.hints.map((hint) => `🎈 ${hint} ¡Tú puedes!`),
       adaptiveFactors: {
-        targetWeakness: strategy.type === "weakness_targeted",
-        reinforceStrength: strategy.type === "confidence_building",
-        optimalTiming: true,
-        personalizedStyle: true,
+        ...problem.adaptiveFactors,
+        ageAppropriate: true,
+        cognitiveLoad: "low",
+        contextualRelevance: true,
       },
       metadata: {
-        conceptsInvolved: template.concepts,
-        prerequisiteSkills: template.prerequisites,
-        learningObjectives: [`Resolver problemas de ${template.category}`],
-        cognitiveLoad: this.calculateCognitiveLoad(template, difficulty),
+        ...problem.metadata,
+        ageGroup: "kids",
+        visualSupport: true,
+        gamificationElements: [
+          "stickers",
+          "animations",
+          "rewards",
+          "characters",
+        ],
+        realWorldContext: this.getKidsContext(problem.category),
       },
     };
   }
 
-  // Planificar secuencia de sesión
+  private enhanceForTeens(
+    problem: AdaptiveProblem,
+    userProfile: any
+  ): AdaptiveProblem {
+    return {
+      ...problem,
+      problem: this.addCoolContext(problem.problem),
+      explanation: this.makeExplanationCool(problem.explanation),
+      hints: problem.hints.map((hint) => `💡 Pro tip: ${hint}`),
+      adaptiveFactors: {
+        ...problem.adaptiveFactors,
+        ageAppropriate: true,
+        cognitiveLoad: "medium",
+        contextualRelevance: true,
+      },
+      metadata: {
+        ...problem.metadata,
+        ageGroup: "teens",
+        visualSupport: true,
+        gamificationElements: [
+          "achievements",
+          "leaderboards",
+          "challenges",
+          "streaks",
+        ],
+        realWorldContext: this.getTeenContext(problem.category),
+      },
+    };
+  }
+
+  private enhanceForAdults(
+    problem: AdaptiveProblem,
+    userProfile: any
+  ): AdaptiveProblem {
+    return {
+      ...problem,
+      problem: this.addPracticalContext(problem.problem),
+      explanation: this.makeExplanationPractical(problem.explanation),
+      hints: problem.hints.map((hint) => `💼 Estrategia: ${hint}`),
+      adaptiveFactors: {
+        ...problem.adaptiveFactors,
+        ageAppropriate: true,
+        cognitiveLoad: "high",
+        contextualRelevance: true,
+      },
+      metadata: {
+        ...problem.metadata,
+        ageGroup: "adults",
+        visualSupport: false,
+        gamificationElements: ["progress", "efficiency", "mastery", "insights"],
+        realWorldContext: this.getAdultContext(problem.category),
+      },
+    };
+  }
+
+  private enhanceForSeniors(
+    problem: AdaptiveProblem,
+    userProfile: any
+  ): AdaptiveProblem {
+    return {
+      ...problem,
+      problem: this.addWiseContext(problem.problem),
+      explanation: this.makeExplanationClear(problem.explanation),
+      hints: problem.hints.map((hint) => `🌟 Consejo: ${hint}`),
+      timeEstimate: problem.timeEstimate * 1.3,
+      adaptiveFactors: {
+        ...problem.adaptiveFactors,
+        ageAppropriate: true,
+        cognitiveLoad: "low",
+        contextualRelevance: true,
+      },
+      metadata: {
+        ...problem.metadata,
+        ageGroup: "seniors",
+        visualSupport: true,
+        gamificationElements: ["wisdom", "reflection", "mastery", "teaching"],
+        realWorldContext: this.getSeniorContext(problem.category),
+      },
+    };
+  }
+
+  // Planificar secuencia de sesión (método original mantenido)
   private planSessionSequence(
     request: ProblemGenerationRequest,
     metrics: PersonalizedMetrics,
@@ -419,12 +533,364 @@ class AdaptiveProblemGenerator {
     return sequence;
   }
 
-  // Métodos auxiliares
+  private planAgeAwareSessionSequence(
+    request: ProblemGenerationRequest,
+    metrics: PersonalizedMetrics,
+    count: number
+  ): any[] {
+    const baseSequence = this.planSessionSequence(request, metrics, count);
+    const ageGroup = request.userProfile.ageGroup;
+
+    return baseSequence.map((step: any, index: number) => {
+      const position = index / (count - 1);
+
+      switch (ageGroup) {
+        case "kids":
+          return {
+            ...step,
+            encouragementLevel: position < 0.3 ? "high" : "medium",
+            playfulElements: true,
+            breakSuggestion: index % 3 === 2,
+          };
+
+        case "teens":
+          return {
+            ...step,
+            competitiveElement: index % 2 === 0,
+            achievementMilestone: position === 0.5 || position === 1.0,
+            socialSharing: position === 1.0,
+          };
+
+        case "adults":
+          return {
+            ...step,
+            efficiencyFocus: true,
+            progressUpdate: index % 4 === 3,
+            practicalApplication: position > 0.3,
+          };
+
+        case "seniors":
+          return {
+            ...step,
+            extraClarity: true,
+            patientPacing: true,
+            wisdomConnection: position > 0.5,
+          };
+
+        default:
+          return step;
+      }
+    });
+  }
+
+  private addPlayfulContext(problem: string): string {
+    const playfulPhrases = [
+      "🎈 Vamos a resolver este divertido problema:",
+      "🌟 ¡Hora de brillar! ",
+      "🎪 En el circo de las matemáticas:",
+      "🦄 ¡Problema mágico!",
+    ];
+    const prefix =
+      playfulPhrases[Math.floor(Math.random() * playfulPhrases.length)];
+    return `${prefix} ${problem}`;
+  }
+
+  private addCoolContext(problem: string): string {
+    const coolPhrases = [
+      "🔥 Challenge time:",
+      "⚡ Power problem:",
+      "🎯 Mission:",
+      "🚀 Level up:",
+    ];
+    const prefix = coolPhrases[Math.floor(Math.random() * coolPhrases.length)];
+    return `${prefix} ${problem}`;
+  }
+
+  private addPracticalContext(problem: string): string {
+    const practicalPhrases = [
+      "💼 Situación práctica:",
+      "🎯 Problema del mundo real:",
+      "📊 Análisis requerido:",
+      "⚙️ Desafío aplicado:",
+    ];
+    const prefix =
+      practicalPhrases[Math.floor(Math.random() * practicalPhrases.length)];
+    return `${prefix} ${problem}`;
+  }
+
+  private addWiseContext(problem: string): string {
+    const wisePhrases = [
+      "🌟 Reflexionemos sobre:",
+      "🧠 Pensemos juntos:",
+      "💭 Consideremos:",
+      "⭐ Exploremos:",
+    ];
+    const prefix = wisePhrases[Math.floor(Math.random() * wisePhrases.length)];
+    return `${prefix} ${problem}`;
+  }
+
+  private makeExplanationFriendly(
+    explanation: string,
+    ageGroup: string
+  ): string {
+    return `¡Muy bien! 🎉 ${explanation} ¡Sabía que podías hacerlo!`;
+  }
+
+  private makeExplanationCool(explanation: string): string {
+    return `🔥 Awesome! ${explanation} You nailed it! 💪`;
+  }
+
+  private makeExplanationPractical(explanation: string): string {
+    return `✅ Correcto. ${explanation} Esta habilidad es útil en situaciones reales.`;
+  }
+
+  private makeExplanationClear(explanation: string): string {
+    return `🌟 Excelente trabajo. ${explanation} Su experiencia le ha servido bien.`;
+  }
+
+  private getKidsContext(category: string): string {
+    const contexts = {
+      suma: "Contando juguetes en la juguetería",
+      resta: "Compartiendo caramelos con amigos",
+      multiplicacion: "Grupos de animales en el zoológico",
+      division: "Repartiendo pizza en la fiesta",
+    };
+    return contexts[category as keyof typeof contexts] || "Aventura matemática";
+  }
+
+  private getTeenContext(category: string): string {
+    const contexts = {
+      suma: "Calculando puntos en videojuegos",
+      resta: "Gestionando dinero para compras",
+      multiplicacion: "Planificando eventos escolares",
+      division: "Dividiendo gastos entre amigos",
+    };
+    return contexts[category as keyof typeof contexts] || "Desafío matemático";
+  }
+
+  private getAdultContext(category: string): string {
+    const contexts = {
+      suma: "Planificación de presupuestos",
+      resta: "Análisis de gastos",
+      multiplicacion: "Cálculos de productividad",
+      division: "Distribución de recursos",
+    };
+    return contexts[category as keyof typeof contexts] || "Aplicación práctica";
+  }
+
+  private getSeniorContext(category: string): string {
+    const contexts = {
+      suma: "Administrando gastos familiares",
+      resta: "Calculando ahorros",
+      multiplicacion: "Planificando para nietos",
+      division: "Distribuyendo herencias",
+    };
+    return contexts[category as keyof typeof contexts] || "Sabiduría aplicada";
+  }
+
+  private estimateTemplateCognitiveLoad(template: ProblemTemplate): number {
+    let load = 1;
+
+    if (template.concepts.length > 2) load += 0.5;
+    if (template.prerequisites.length > 1) load += 0.3;
+    if (
+      template.operation.includes("division") ||
+      template.operation.includes("fraction")
+    )
+      load += 0.7;
+
+    return Math.min(3, load);
+  }
+
+  async generateTargetedProblem(
+    weakness: LearningInsight
+  ): Promise<AdaptiveProblem> {
+    const templates = this.problemTemplates.filter(
+      (t) =>
+        weakness.description.toLowerCase().includes(t.category.toLowerCase()) ||
+        weakness.description.toLowerCase().includes(t.operation.toLowerCase())
+    );
+
+    if (templates.length === 0) {
+      throw new Error(
+        `No templates found for weakness: ${weakness.description}`
+      );
+    }
+
+    const template = templates[0];
+    const difficulty = weakness.priority === "high" ? "easy" : "medium";
+
+    const problem = await this.generateFromTemplate(template, difficulty, {
+      type: "weakness_targeted",
+      focus: weakness.description,
+      supportLevel: "high",
+    });
+
+    problem.hints = this.generateSupportiveHints(template, weakness);
+    problem.explanation = this.generateDetailedExplanation(template, weakness);
+
+    return problem;
+  }
+
+  private async selectGenerationStrategy(
+    request: ProblemGenerationRequest,
+    insights: LearningInsight[],
+    metrics: PersonalizedMetrics
+  ): Promise<any> {
+    const strategy: any = {
+      type: "balanced",
+      focus: "general",
+      supportLevel: "medium",
+    };
+
+    if (metrics.burnoutRisk > 0.7) {
+      strategy.type = "engagement_focused";
+      strategy.supportLevel = "high";
+      strategy.difficulty = "easy";
+    }
+
+    if (metrics.engagementLevel < 0.4) {
+      strategy.type = "motivation_focused";
+      strategy.focus = "strengths";
+      strategy.variety = "high";
+    }
+
+    const weaknesses = insights.filter(
+      (i) => i.type === "weakness" && i.priority === "high"
+    );
+    if (weaknesses.length > 0 && request.adaptiveGoals.targetWeaknesses) {
+      strategy.type = "weakness_targeted";
+      strategy.focus = weaknesses[0].description;
+      strategy.supportLevel = "high";
+    }
+
+    const strengths = insights.filter((i) => i.type === "strength");
+    if (
+      request.sessionContext.recentPerformance < 0.6 &&
+      strengths.length > 0
+    ) {
+      strategy.type = "confidence_building";
+      strategy.focus = strengths[0].description;
+      strategy.difficulty = "easy";
+    }
+
+    return strategy;
+  }
+
+  private selectTemplate(strategy: any): ProblemTemplate {
+    return this.selectAgeAppropriateTemplate(strategy, "adults");
+  }
+
+  private calculateAdaptiveDifficulty(
+    request: ProblemGenerationRequest,
+    metrics: PersonalizedMetrics
+  ): "easy" | "medium" | "hard" | "expert" {
+    const baseModifiers = this.adaptiveDifficulty.getDifficultyModifiers();
+
+    let targetDifficulty = "medium";
+
+    if (request.sessionContext.recentPerformance > 0.8) {
+      targetDifficulty = baseModifiers.complexityLevel >= 3 ? "hard" : "medium";
+    } else if (request.sessionContext.recentPerformance < 0.5) {
+      targetDifficulty = "easy";
+    }
+
+    if (metrics.burnoutRisk > 0.6) {
+      targetDifficulty = "easy";
+    }
+
+    if (request.preferences.maxDifficulty) {
+      const difficultyLevels = ["easy", "medium", "hard", "expert"];
+      const maxIndex = difficultyLevels.indexOf(
+        request.preferences.maxDifficulty
+      );
+      const currentIndex = difficultyLevels.indexOf(targetDifficulty);
+
+      if (currentIndex > maxIndex) {
+        targetDifficulty = request.preferences.maxDifficulty as any;
+      }
+    }
+
+    return targetDifficulty as "easy" | "medium" | "hard" | "expert";
+  }
+
+  private async generateFromTemplate(
+    template: ProblemTemplate,
+    difficulty: string,
+    strategy: any
+  ): Promise<AdaptiveProblem> {
+    const variables: { [key: string]: number } = {};
+    const difficultyRanges =
+      template.difficulty[difficulty as keyof typeof template.difficulty];
+
+    Object.entries(template.variables).forEach(([varName, config]) => {
+      const [min, max] = difficultyRanges[varName] || [config.min, config.max];
+
+      if (config.type === "integer") {
+        variables[varName] = Math.floor(Math.random() * (max - min + 1)) + min;
+      } else if (config.type === "decimal") {
+        variables[varName] =
+          Math.round((Math.random() * (max - min) + min) * 100) / 100;
+      }
+    });
+
+    let problemText = template.template;
+    Object.entries(variables).forEach(([varName, value]) => {
+      problemText = problemText.replace(
+        new RegExp(`{${varName}}`, "g"),
+        value.toString()
+      );
+    });
+
+    const correctAnswer = this.calculateCorrectAnswer(template, variables);
+
+    const options = this.generateOptions(correctAnswer, template, difficulty);
+
+    const timeEstimate = this.estimateTimeRequired(
+      template,
+      difficulty,
+      strategy
+    );
+
+    return {
+      id: `${template.id}_${Date.now()}_${Math.random()
+        .toString(36)
+        .substr(2, 5)}`,
+      type: template.operation,
+      category: template.category,
+      difficulty: difficulty as any,
+      operation: template.operation,
+      problem: problemText,
+      options,
+      correctAnswer,
+      explanation: this.generateExplanation(template, variables, correctAnswer),
+      hints: this.generateHints(template, variables, strategy),
+      timeEstimate,
+      adaptiveFactors: {
+        targetWeakness: strategy.type === "weakness_targeted",
+        reinforceStrength: strategy.type === "confidence_building",
+        optimalTiming: true,
+        personalizedStyle: true,
+        ageAppropriate: false,
+        cognitiveLoad: "medium",
+        contextualRelevance: false,
+      },
+      metadata: {
+        conceptsInvolved: template.concepts,
+        prerequisiteSkills: template.prerequisites,
+        learningObjectives: [`Resolver problemas de ${template.category}`],
+        cognitiveLoad: this.calculateCognitiveLoad(template, difficulty),
+        ageGroup: "adults",
+        visualSupport: false,
+        gamificationElements: [],
+      },
+    };
+  }
+
   private calculateCorrectAnswer(
     template: ProblemTemplate,
     variables: { [key: string]: number }
   ): string {
-    // Implementación simplificada - en una app real esto sería más sofisticado
     if (template.operation === "addition") {
       return (variables.a + variables.b).toString();
     } else if (template.operation === "subtraction") {
@@ -446,7 +912,6 @@ class AdaptiveProblemGenerator {
     const correct = parseFloat(correctAnswer);
     const options = [correctAnswer];
 
-    // Generar distractores inteligentes
     const variation =
       difficulty === "easy" ? 0.2 : difficulty === "medium" ? 0.5 : 0.8;
 
@@ -454,15 +919,12 @@ class AdaptiveProblemGenerator {
       let distractor: number;
 
       if (Math.random() < 0.5) {
-        // Error común: off-by-one, intercambiar operación, etc.
         distractor = this.generateCommonError(template, correct);
       } else {
-        // Error aleatorio dentro del rango
         const range = correct * variation;
         distractor = correct + (Math.random() - 0.5) * range * 2;
       }
 
-      // Formatear según tipo de respuesta
       const formatted =
         template.variables.a?.type === "integer"
           ? Math.round(distractor).toString()
@@ -473,7 +935,6 @@ class AdaptiveProblemGenerator {
       }
     }
 
-    // Asegurar 4 opciones únicas
     while (options.length < 4) {
       const randomDistractor = (
         correct +
@@ -484,7 +945,6 @@ class AdaptiveProblemGenerator {
       }
     }
 
-    // Mezclar opciones
     return options.sort(() => Math.random() - 0.5);
   }
 
@@ -492,7 +952,6 @@ class AdaptiveProblemGenerator {
     template: ProblemTemplate,
     correct: number
   ): number {
-    // Generar errores comunes basados en el tipo de operación
     if (template.operation === "addition") {
       return Math.random() < 0.5 ? correct - 1 : correct + 1;
     } else if (template.operation === "subtraction") {
@@ -546,7 +1005,6 @@ class AdaptiveProblemGenerator {
         hints.push(`Pista 2: Piensa en qué número + ${b} = ${a}`);
       }
     } else {
-      // Pistas más sutiles para niveles normales
       if (template.operation === "addition") {
         hints.push("Pista: Recuerda que puedes sumar en cualquier orden");
       } else if (template.operation === "subtraction") {
@@ -565,7 +1023,6 @@ class AdaptiveProblemGenerator {
   ): string[] {
     const hints: string[] = [];
 
-    // Generar pistas específicas basadas en la debilidad identificada
     if (weakness.description.includes("velocidad")) {
       hints.push(
         "Tómate tu tiempo - la precisión es más importante que la velocidad"
@@ -578,7 +1035,6 @@ class AdaptiveProblemGenerator {
       hints.push("Piensa en si tu respuesta tiene sentido");
     }
 
-    // Añadir pistas específicas del template
     hints.push(
       ...this.generateHints(template, { a: 0, b: 0 }, { supportLevel: "high" })
     );
@@ -596,7 +1052,6 @@ class AdaptiveProblemGenerator {
       "resultado"
     );
 
-    // Añadir explicación específica para la debilidad
     if (weakness.description.includes("conceptos básicos")) {
       explanation += "\n\nRecuerda: " + weakness.suggestedActions.join(", ");
     }
@@ -609,9 +1064,8 @@ class AdaptiveProblemGenerator {
     difficulty: string,
     strategy: any
   ): number {
-    let baseTime = 15; // segundos base
+    let baseTime = 15;
 
-    // Ajustar por dificultad
     const difficultyMultipliers = {
       easy: 0.7,
       medium: 1.0,
@@ -621,12 +1075,10 @@ class AdaptiveProblemGenerator {
     baseTime *=
       difficultyMultipliers[difficulty as keyof typeof difficultyMultipliers];
 
-    // Ajustar por complejidad del template
     baseTime *= template.concepts.length * 0.2 + 0.8;
 
-    // Ajustar por estrategia
     if (strategy.supportLevel === "high") {
-      baseTime *= 1.3; // Más tiempo para problemas de soporte
+      baseTime *= 1.3;
     }
 
     return Math.round(baseTime);
@@ -636,15 +1088,12 @@ class AdaptiveProblemGenerator {
     template: ProblemTemplate,
     difficulty: string
   ): number {
-    let load = 0.5; // Base
+    let load = 0.5;
 
-    // Incrementar por conceptos involucrados
     load += template.concepts.length * 0.1;
 
-    // Incrementar por prerequisitos
     load += template.prerequisites.length * 0.05;
 
-    // Ajustar por dificultad
     const difficultyLoads = { easy: 0.3, medium: 0.6, hard: 0.8, expert: 1.0 };
     load += difficultyLoads[difficulty as keyof typeof difficultyLoads];
 
@@ -656,7 +1105,6 @@ class AdaptiveProblemGenerator {
     insights: LearningInsight[],
     metrics: PersonalizedMetrics
   ): Promise<AdaptiveProblem> {
-    // Personalizar basado en estilo de aprendizaje
     if (metrics.learningStyle === "visual") {
       problem.explanation =
         "🎨 " +
@@ -667,7 +1115,6 @@ class AdaptiveProblemGenerator {
         "📝 " + problem.explanation + "\n🔢 Sigue cada paso cuidadosamente.";
     }
 
-    // Añadir motivación personalizada
     if (metrics.motivationalFactors.includes("Logros y progreso")) {
       problem.hints.push(
         "¡Resolver este problema te acercará a tu próximo logro!"
@@ -677,7 +1124,6 @@ class AdaptiveProblemGenerator {
     return problem;
   }
 
-  // Inicializar templates de problemas
   private initializeProblemTemplates(): void {
     this.problemTemplates = [
       {
@@ -697,6 +1143,36 @@ class AdaptiveProblemGenerator {
         },
         concepts: ["suma", "números enteros"],
         prerequisites: ["contar"],
+        ageConfigurations: {
+          kids: {
+            contextualThemes: ["juguetes", "juguetería"],
+            maxCognitiveLoad: 1.5,
+            visualElements: true,
+            gamificationLevel: "low",
+            encouragementStyle: "calm",
+          },
+          teens: {
+            contextualThemes: ["videojuegos", "competitivo"],
+            maxCognitiveLoad: 2.0,
+            coolFactor: true,
+            competitiveElements: true,
+            encouragementStyle: "achievement",
+          },
+          adults: {
+            contextualThemes: ["presupuestos", "productividad"],
+            maxCognitiveLoad: 3.0,
+            practicalApplications: true,
+            efficiency: true,
+            encouragementStyle: "professional",
+          },
+          seniors: {
+            contextualThemes: ["ahorros", "herencias"],
+            maxCognitiveLoad: 1.5,
+            nostalgicElements: true,
+            clearInstructions: true,
+            encouragementStyle: "respectful",
+          },
+        },
       },
       {
         id: "subtraction_basic",
@@ -715,6 +1191,36 @@ class AdaptiveProblemGenerator {
         },
         concepts: ["resta", "números enteros"],
         prerequisites: ["suma básica"],
+        ageConfigurations: {
+          kids: {
+            contextualThemes: ["caramelos", "amigos"],
+            maxCognitiveLoad: 1.0,
+            visualElements: true,
+            gamificationLevel: "low",
+            encouragementStyle: "calm",
+          },
+          teens: {
+            contextualThemes: ["dinero", "compras"],
+            maxCognitiveLoad: 1.5,
+            coolFactor: true,
+            competitiveElements: true,
+            encouragementStyle: "achievement",
+          },
+          adults: {
+            contextualThemes: ["gastos", "presupuestos"],
+            maxCognitiveLoad: 2.0,
+            practicalApplications: true,
+            efficiency: true,
+            encouragementStyle: "professional",
+          },
+          seniors: {
+            contextualThemes: ["ahorros", "herencias"],
+            maxCognitiveLoad: 1.0,
+            nostalgicElements: true,
+            clearInstructions: true,
+            encouragementStyle: "respectful",
+          },
+        },
       },
       {
         id: "multiplication_basic",
@@ -733,8 +1239,37 @@ class AdaptiveProblemGenerator {
         },
         concepts: ["multiplicación", "tablas"],
         prerequisites: ["suma repetida"],
+        ageConfigurations: {
+          kids: {
+            contextualThemes: ["juguetes", "animales"],
+            maxCognitiveLoad: 1.0,
+            visualElements: true,
+            gamificationLevel: "low",
+            encouragementStyle: "calm",
+          },
+          teens: {
+            contextualThemes: ["puntos", "videojuegos"],
+            maxCognitiveLoad: 1.5,
+            coolFactor: true,
+            competitiveElements: true,
+            encouragementStyle: "achievement",
+          },
+          adults: {
+            contextualThemes: ["productividad", "cálculos"],
+            maxCognitiveLoad: 2.0,
+            practicalApplications: true,
+            efficiency: true,
+            encouragementStyle: "professional",
+          },
+          seniors: {
+            contextualThemes: ["nietos", "planificación"],
+            maxCognitiveLoad: 1.0,
+            nostalgicElements: true,
+            clearInstructions: true,
+            encouragementStyle: "respectful",
+          },
+        },
       },
-      // Añadir más templates según necesidad...
     ];
   }
 }

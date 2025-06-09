@@ -22,6 +22,17 @@ import AdaptiveProblemGenerator from "../services/AdaptiveProblemGenerator";
 
 interface LearningInsightsProps {
   userId: string;
+  // ✅ NUEVO: Información del usuario por edad
+  userProfile: {
+    ageGroup: "kids" | "teens" | "adults" | "seniors";
+    name: string;
+    preferences: {
+      highContrast: boolean;
+      largeText: boolean;
+      soundEnabled: boolean;
+      hapticsEnabled: boolean;
+    };
+  };
   onInsightAction?: (insight: LearningInsight, action: string) => void;
   compact?: boolean;
 }
@@ -79,6 +90,7 @@ const { width } = Dimensions.get("window");
 
 export const LearningInsights: React.FC<LearningInsightsProps> = ({
   userId,
+  userProfile,
   onInsightAction,
   compact = false,
 }) => {
@@ -137,20 +149,30 @@ export const LearningInsights: React.FC<LearningInsightsProps> = ({
     try {
       setIsLoading(true);
 
-      // Cargar insights básicos
-      const basicInsights = await analytics.generateInsights();
+      // ✅ NUEVO: Cargar insights específicos por edad
+      const basicInsights = await analytics.generateAgeAwareInsights(
+        userProfile.ageGroup
+      );
       setInsights(basicInsights);
 
-      // Generar diagnóstico cognitivo
+      // ✅ NUEVO: Generar diagnóstico cognitivo considerando edad
       const diagnostic = await generateCognitiveDiagnostic();
       setCognitiveDiagnostic(diagnostic);
 
-      // Generar insights de AI avanzados
-      const aiAnalysis = await generateAIInsights(basicInsights, diagnostic);
+      // ✅ NUEVO: Generar insights de AI adaptados por edad
+      const aiAnalysis = await generateAgeAdaptedAIInsights(
+        basicInsights,
+        diagnostic,
+        userProfile
+      );
       setAIInsights(aiAnalysis);
 
-      // Generar rutas de aprendizaje personalizadas
-      const paths = await generateLearningPaths(diagnostic, basicInsights);
+      // ✅ NUEVO: Generar rutas de aprendizaje personalizadas por edad
+      const paths = await generateAgeAppropriatelearningPaths(
+        diagnostic,
+        basicInsights,
+        userProfile
+      );
       setLearningPaths(paths);
     } catch (error) {
       console.error("Error initializing insights:", error);
@@ -332,6 +354,43 @@ export const LearningInsights: React.FC<LearningInsightsProps> = ({
     return aiInsights;
   };
 
+  // ✅ NUEVO: Generar insights de AI adaptados por edad
+  const generateAgeAdaptedAIInsights = async (
+    basicInsights: LearningInsight[],
+    diagnostic: CognitiveDiagnostic,
+    userProfile: any
+  ): Promise<AIInsight[]> => {
+    const baseAIInsights = await generateAIInsights(basicInsights, diagnostic);
+
+    // Adaptar insights para el grupo de edad
+    return baseAIInsights.map((insight) => ({
+      ...insight,
+      title: getAgeAppropriateTitle(insight.title, userProfile.ageGroup),
+      description: getAgeAppropriateDescription(
+        insight.description,
+        userProfile.ageGroup
+      ),
+      recommendations: insight.recommendations.map((rec) => ({
+        ...rec,
+        action: getAgeAppropriateAction(rec.action, userProfile.ageGroup),
+      })),
+    }));
+  };
+
+  // ✅ NUEVO: Generar rutas de aprendizaje apropiadas por edad
+  const generateAgeAppropriatelearningPaths = async (
+    diagnostic: CognitiveDiagnostic,
+    insights: LearningInsight[],
+    userProfile: any
+  ): Promise<LearningPath[]> => {
+    const basePaths = await generateLearningPaths(diagnostic, insights);
+
+    // Filtrar y adaptar rutas por edad
+    return basePaths
+      .filter((path) => isPathAppropriateForAge(path, userProfile.ageGroup))
+      .map((path) => adaptPathForAge(path, userProfile.ageGroup));
+  };
+
   const generateLearningPaths = async (
     diagnostic: CognitiveDiagnostic,
     insights: LearningInsight[]
@@ -479,6 +538,99 @@ export const LearningInsights: React.FC<LearningInsightsProps> = ({
     }
 
     return paths;
+  };
+
+  // ✅ NUEVOS: Métodos auxiliares para adaptación por edad
+  const getAgeAppropriateTitle = (title: string, ageGroup: string): string => {
+    const prefixes = {
+      kids: "🌟 ",
+      teens: "🔥 ",
+      adults: "",
+      seniors: "💫 ",
+    };
+    return (prefixes[ageGroup as keyof typeof prefixes] || "") + title;
+  };
+
+  const getAgeAppropriateDescription = (
+    description: string,
+    ageGroup: string
+  ): string => {
+    const styles = {
+      kids: "¡" + description + " ¡Tú puedes!",
+      teens: description + " 💪",
+      adults: description,
+      seniors: description + " Su experiencia es valiosa.",
+    };
+    return styles[ageGroup as keyof typeof styles] || description;
+  };
+
+  const getAgeAppropriateAction = (
+    action: string,
+    ageGroup: string
+  ): string => {
+    const prefixes = {
+      kids: "Vamos a ",
+      teens: "Challenge: ",
+      adults: "Estrategia: ",
+      seniors: "Consejo: ",
+    };
+    return (prefixes[ageGroup as keyof typeof prefixes] || "") + action;
+  };
+
+  const isPathAppropriateForAge = (
+    path: LearningPath,
+    ageGroup: string
+  ): boolean => {
+    const appropriatePaths = {
+      kids: ["emotional_resilience", "speed_optimization"],
+      teens: ["speed_optimization", "metacognition_mastery"],
+      adults: ["metacognition_mastery", "speed_optimization"],
+      seniors: ["emotional_resilience", "metacognition_mastery"],
+    };
+
+    const allowedPaths =
+      appropriatePaths[ageGroup as keyof typeof appropriatePaths] || [];
+    return allowedPaths.includes(path.id) || path.difficulty === "beginner";
+  };
+
+  const adaptPathForAge = (
+    path: LearningPath,
+    ageGroup: string
+  ): LearningPath => {
+    const adaptations = {
+      kids: {
+        titlePrefix: "🎮 ",
+        durationMultiplier: 0.7,
+        stepsDescription: "paso súper divertido",
+      },
+      teens: {
+        titlePrefix: "🚀 ",
+        durationMultiplier: 0.9,
+        stepsDescription: "challenge épico",
+      },
+      adults: {
+        titlePrefix: "",
+        durationMultiplier: 1.0,
+        stepsDescription: "paso estratégico",
+      },
+      seniors: {
+        titlePrefix: "🌟 ",
+        durationMultiplier: 1.3,
+        stepsDescription: "paso reflexivo",
+      },
+    };
+
+    const style =
+      adaptations[ageGroup as keyof typeof adaptations] || adaptations.adults;
+
+    return {
+      ...path,
+      title: style.titlePrefix + path.title,
+      steps: path.steps.map((step) => ({
+        ...step,
+        description: step.description + ` (${style.stepsDescription})`,
+      })),
+    };
   };
 
   const handleInsightAction = (insight: AIInsight, action: string) => {
@@ -1024,7 +1176,7 @@ const styles = StyleSheet.create({
   },
   highImpactCard: {
     borderLeftWidth: 4,
-    borderLeftColor: colors.accent,
+    borderLeftColor: colors.text.accent,
   },
   insightHeader: {
     flexDirection: "row",
@@ -1055,7 +1207,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.error.main + "20",
   },
   mediumImpact: {
-    backgroundColor: colors.accent + "20",
+    backgroundColor: colors.text.accent + "20",
   },
   lowImpact: {
     backgroundColor: colors.success.main + "20",
@@ -1133,7 +1285,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.success.main + "20",
   },
   mediumDifficulty: {
-    backgroundColor: colors.accent + "20",
+    backgroundColor: colors.text.accent + "20",
   },
   hardDifficulty: {
     backgroundColor: colors.error.main + "20",

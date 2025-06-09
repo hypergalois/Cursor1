@@ -28,7 +28,10 @@ import StarSystem, {
   StarBreakdown,
 } from "../components/StarSystem";
 import LevelProgression from "../components/LevelProgression";
-import AchievementSystem from "../components/AchievementSystem";
+import AchievementSystem, {
+  generateDefaultAchievements,
+  useAchievements,
+} from "../components/AchievementSystem";
 import ProgressTrackingService from "../services/ProgressTrackingService";
 
 interface ResultScreenProps {
@@ -89,6 +92,13 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
   const [currentProgress, setCurrentProgress] = useState<any>(null);
   const [levelUpData, setLevelUpData] = useState<any>(null);
 
+  // ✅ NUEVO: Sistema de achievements integrado
+  const [achievements, setAchievements] = useState(() =>
+    generateDefaultAchievements()
+  );
+  const [newAchievements, setNewAchievements] = useState<any[]>([]);
+  const [showAchievementModal, setShowAchievementModal] = useState(false);
+
   // ✅ DESHABILITAR NAVEGACIÓN HACIA ATRÁS
   useFocusEffect(
     React.useCallback(() => {
@@ -112,6 +122,53 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
   const scaleAnim = useRef(new Animated.Value(0.8)).current;
   const progressAnim = useRef(new Animated.Value(0)).current;
 
+  // ✅ FUNCIÓN: Detectar achievements desbloqueados
+  const checkAchievements = (
+    progress: any,
+    achievementsList: any[],
+    unlockedList: any[]
+  ) => {
+    achievementsList.forEach((achievement, index) => {
+      if (!achievement.unlocked) {
+        let shouldUnlock = false;
+
+        // Detectar diferentes tipos de achievements
+        switch (achievement.requirements.type) {
+          case "problems_solved":
+            if (progress.problemsSolved >= achievement.requirements.value) {
+              shouldUnlock = true;
+            }
+            break;
+          case "speed_record":
+            if (timeSpent <= achievement.requirements.value) {
+              shouldUnlock = true;
+            }
+            break;
+          case "perfect_streak":
+            if (streak >= achievement.requirements.value && isCorrect) {
+              shouldUnlock = true;
+            }
+            break;
+          case "daily_streak":
+            // Por ahora simulamos - en implementación real sería más complejo
+            if (progress.currentStreak >= achievement.requirements.value) {
+              shouldUnlock = true;
+            }
+            break;
+        }
+
+        if (shouldUnlock) {
+          achievementsList[index] = {
+            ...achievement,
+            unlocked: true,
+            unlockedAt: new Date(),
+          };
+          unlockedList.push(achievementsList[index]);
+        }
+      }
+    });
+  };
+
   useEffect(() => {
     const initializeProgress = async () => {
       // Obtener estadísticas del sistema adaptativo
@@ -131,6 +188,10 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
 
       // Obtener progreso actual
       const progress = await progressService.getProgress();
+
+      // ✅ NUEVO: Detectar achievements desbloqueados
+      const updatedAchievements = [...achievements];
+      const unlockedAchievements: any[] = [];
 
       // Si hay progreso, actualizarlo con los nuevos datos
       if (progress && isCorrect) {
@@ -158,6 +219,13 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
         // Obtener progreso actualizado
         const updatedProgress = await progressService.getProgress();
         setCurrentProgress(updatedProgress);
+
+        // ✅ Detectar achievements basados en progreso actualizado
+        checkAchievements(
+          updatedProgress,
+          updatedAchievements,
+          unlockedAchievements
+        );
       } else if (!progress) {
         // Crear progreso inicial
         await progressService.updateProgress({
@@ -171,6 +239,20 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
 
         const newProgress = await progressService.getProgress();
         setCurrentProgress(newProgress);
+
+        // ✅ Detectar achievements para usuario nuevo
+        checkAchievements(
+          newProgress,
+          updatedAchievements,
+          unlockedAchievements
+        );
+      }
+
+      // ✅ Actualizar achievements y mostrar nuevos
+      if (unlockedAchievements.length > 0) {
+        setAchievements(updatedAchievements);
+        setNewAchievements(unlockedAchievements);
+        setShowAchievementModal(true);
       }
 
       // Generar análisis de la sesión
@@ -482,6 +564,20 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
                 >
                   <Text style={styles.starDetailsText}>Ver detalles ⭐</Text>
                 </TouchableOpacity>
+              </View>
+            )}
+
+            {/* Sistema de achievements - Mostrar logros recientes */}
+            {newAchievements.length > 0 && (
+              <View style={styles.achievementSection}>
+                <Text style={styles.achievementTitle}>
+                  🏆 ¡Logro Desbloqueado!
+                </Text>
+                <AchievementSystem
+                  achievements={newAchievements}
+                  compact={true}
+                  showUnlockedOnly={true}
+                />
               </View>
             )}
 
@@ -1113,6 +1209,24 @@ const styles = StyleSheet.create({
     color: colors.error.main,
     textAlign: "center",
     fontWeight: "600",
+  },
+  // ✅ NUEVOS ESTILOS PARA ACHIEVEMENTS
+  achievementSection: {
+    alignItems: "center",
+    marginVertical: spacing.lg,
+    padding: spacing.lg,
+    backgroundColor: colors.gold + "10",
+    borderRadius: borderRadius.lg,
+    borderWidth: 2,
+    borderColor: colors.gold + "30",
+    ...shadows.medium,
+  },
+  achievementTitle: {
+    ...typography.h2,
+    color: colors.gold,
+    fontWeight: "700",
+    marginBottom: spacing.md,
+    textAlign: "center",
   },
 });
 

@@ -15,6 +15,11 @@ export interface ProblemResult {
   currentLevel: number;
   streakBefore: number;
   streakAfter: number;
+  sceneId?: string; // ID de la escena específica
+  missionProgress?: { [missionId: string]: number }; // Progreso de misiones
+  achievementsUnlocked?: string[]; // Logros desbloqueados
+  gemsEarned?: number; // Gemas ganadas
+  starRating?: number; // 1-3 estrellas
 }
 
 export interface UserSession {
@@ -28,6 +33,44 @@ export interface UserSession {
   averageTime: number;
   scenesVisited: string[];
   achievements: string[];
+  gemsEarned: number;
+  starsEarned: number;
+  missionsProgress: { [missionId: string]: number };
+  perfectProblems: number; // Problemas con 3 estrellas
+  comboMultiplier: number; // Multiplicador máximo alcanzado
+}
+
+export interface StreakInfo {
+  current: number;
+  longest: number;
+  lastActiveDate: Date | null;
+  freezeAvailable: number;
+  doubleXPActive: boolean;
+  lastBreakDate?: Date;
+  recoveredCount: number; // Veces que se ha recuperado la racha
+}
+
+export interface DailyMissionProgress {
+  missionId: string;
+  type: string;
+  progress: number;
+  target: number;
+  completed: boolean;
+  date: string; // Fecha de la misión
+}
+
+export interface SceneProgress {
+  sceneId: string;
+  problemsSolved: number;
+  perfectSolutions: number;
+  averageTime: number;
+  accuracy: number;
+  achievements: string[];
+  firstCompletionDate?: Date;
+  bestStreak: number;
+  totalXP: number;
+  gemsEarned: number;
+  starsEarned: number;
 }
 
 export interface UserStats {
@@ -49,6 +92,28 @@ export interface UserStats {
     xp: number;
     accuracy: number;
   }[];
+  totalGems: number;
+  totalStars: number;
+  perfectProblems: number;
+  missionsCompleted: number;
+  ageGroup: "kids" | "teens" | "adults" | "seniors";
+  streakInfo: StreakInfo;
+  sceneProgress: { [sceneId: string]: SceneProgress };
+  dailyMissions: DailyMissionProgress[];
+  weeklyStats: {
+    week: string;
+    problems: number;
+    xp: number;
+    missions: number;
+    achievements: number;
+  }[];
+  monthlyStats: {
+    month: string;
+    totalXP: number;
+    streakDays: number;
+    perfectDays: number;
+    achievements: number;
+  }[];
 }
 
 class UserProgressService {
@@ -63,12 +128,10 @@ class UserProgressService {
     return UserProgressService.instance;
   }
 
-  // Generar ID único para la sesión
   private generateSessionId(): string {
     return `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   }
 
-  // Iniciar nueva sesión
   async startSession(): Promise<string> {
     const sessionId = this.generateSessionId();
     this.currentSession = {
@@ -81,6 +144,11 @@ class UserProgressService {
       averageTime: 0,
       scenesVisited: [],
       achievements: [],
+      gemsEarned: 0,
+      starsEarned: 0,
+      missionsProgress: {},
+      perfectProblems: 0,
+      comboMultiplier: 1,
     };
 
     try {
@@ -88,6 +156,8 @@ class UserProgressService {
         `session_${sessionId}`,
         JSON.stringify(this.currentSession)
       );
+      
+      await this.updateDailyStreak();
     } catch (error) {
       console.error("Error saving session:", error);
     }
@@ -95,7 +165,167 @@ class UserProgressService {
     return sessionId;
   }
 
-  // Registrar resultado de problema
+  async updateDailyStreak(): Promise<StreakInfo> {
+    try {
+      const stats = await this.getUserStats();
+      if (!stats) {
+        return this.initializeStreakInfo();
+      }
+
+      const today = new Date();
+      const todayString = today.toDateString();
+      const lastActiveString = stats.streakInfo.lastActiveDate?.toDateString();
+
+      let updatedStreakInfo = { ...stats.streakInfo };
+
+      if (lastActiveString !== todayString) {
+        const yesterday = new Date(today);
+        yesterday.setDate(yesterday.getDate() - 1);
+        const yesterdayString = yesterday.toDateString();
+
+        if (lastActiveString === yesterdayString) {
+          updatedStreakInfo.current += 1;
+          updatedStreakInfo.longest = Math.max(
+            updatedStreakInfo.longest,
+            updatedStreakInfo.current
+          );
+        } else if (lastActiveString) {
+          updatedStreakInfo.lastBreakDate = new Date();
+          updatedStreakInfo.current = 1;
+        } else {
+          updatedStreakInfo.current = 1;
+        }
+
+        updatedStreakInfo.lastActiveDate = today;
+        
+        updatedStreakInfo.doubleXPActive = updatedStreakInfo.current % 7 === 0;
+
+        stats.streakInfo = updatedStreakInfo;
+        await AsyncStorage.setItem("user_stats", JSON.stringify(stats));
+      }
+
+      return updatedStreakInfo;
+    } catch (error) {
+      console.error("Error updating daily streak:", error);
+      return this.initializeStreakInfo();
+    }
+  }
+
+  private initializeStreakInfo(): StreakInfo {
+    return {
+      current: 0,
+      longest: 0,
+      lastActiveDate: null,
+      freezeAvailable: 2,
+      doubleXPActive: false,
+      recoveredCount: 0,
+    };
+  }
+
+  async useStreakFreeze(): Promise<boolean> {
+    try {
+      const stats = await this.getUserStats();
+      if (!stats || stats.streakInfo.freezeAvailable <= 0) {
+        return false;
+      }
+
+      stats.streakInfo.freezeAvailable -= 1;
+      await AsyncStorage.setItem("user_stats", JSON.stringify(stats));
+      return true;
+    } catch (error) {
+      console.error("Error using streak freeze:", error);
+      return false;
+    }
+  }
+
+  async updateMissionProgress(missionType: string, amount: number = 1): Promise<void> {
+    try {
+      const stats = await this.getUserStats();
+      if (!stats) return;
+
+      const today = new Date().toDateString();
+      let todayMissions = stats.dailyMissions.filter(m => m.date === today);
+
+      todayMissions.forEach(mission => {
+        if (mission.type === missionType && !mission.completed) {
+          mission.progress = Math.min(mission.progress + amount, mission.target);
+          mission.completed = mission.progress >= mission.target;
+          
+          if (mission.completed) {
+            stats.missionsCompleted += 1;
+          }
+        }
+      });
+
+      if (this.currentSession) {
+        if (!this.currentSession.missionsProgress[missionType]) {
+          this.currentSession.missionsProgress[missionType] = 0;
+        }
+        this.currentSession.missionsProgress[missionType] += amount;
+      }
+
+      await AsyncStorage.setItem("user_stats", JSON.stringify(stats));
+    } catch (error) {
+      console.error("Error updating mission progress:", error);
+    }
+  }
+
+  async updateSceneProgress(
+    sceneId: string, 
+    result: ProblemResult
+  ): Promise<void> {
+    try {
+      const stats = await this.getUserStats();
+      if (!stats) return;
+
+      if (!stats.sceneProgress[sceneId]) {
+        stats.sceneProgress[sceneId] = {
+          sceneId,
+          problemsSolved: 0,
+          perfectSolutions: 0,
+          averageTime: 0,
+          accuracy: 0,
+          achievements: [],
+          bestStreak: 0,
+          totalXP: 0,
+          gemsEarned: 0,
+          starsEarned: 0,
+        };
+      }
+
+      const sceneProgress = stats.sceneProgress[sceneId];
+      const oldProblems = sceneProgress.problemsSolved;
+      
+      sceneProgress.problemsSolved += 1;
+      if (result.correct) {
+        const oldCorrect = sceneProgress.accuracy * oldProblems;
+        sceneProgress.accuracy = (oldCorrect + 1) / sceneProgress.problemsSolved;
+      } else {
+        const oldCorrect = sceneProgress.accuracy * oldProblems;
+        sceneProgress.accuracy = oldCorrect / sceneProgress.problemsSolved;
+      }
+
+      const totalTime = sceneProgress.averageTime * oldProblems + result.timeTaken;
+      sceneProgress.averageTime = totalTime / sceneProgress.problemsSolved;
+
+      if (result.starRating === 3) {
+        sceneProgress.perfectSolutions += 1;
+      }
+      sceneProgress.bestStreak = Math.max(sceneProgress.bestStreak, result.streakAfter);
+      sceneProgress.totalXP += result.xpEarned;
+      sceneProgress.gemsEarned += result.gemsEarned || 0;
+      sceneProgress.starsEarned += result.starRating || 0;
+
+      if (!sceneProgress.firstCompletionDate && result.correct) {
+        sceneProgress.firstCompletionDate = new Date();
+      }
+
+      await AsyncStorage.setItem("user_stats", JSON.stringify(stats));
+    } catch (error) {
+      console.error("Error updating scene progress:", error);
+    }
+  }
+
   async recordProblemResult(
     result: Omit<ProblemResult, "userId" | "sessionId">
   ): Promise<void> {
@@ -106,21 +336,24 @@ class UserProgressService {
     };
 
     try {
-      // Guardar resultado individual
       const resultKey = `result_${problemResult.problemId}_${problemResult.timestamp}`;
       await AsyncStorage.setItem(resultKey, JSON.stringify(problemResult));
 
-      // Actualizar sesión actual
       if (this.currentSession) {
         this.currentSession.totalProblems++;
         if (result.correct) this.currentSession.correctAnswers++;
         this.currentSession.totalXp += result.xpEarned;
+        this.currentSession.gemsEarned += result.gemsEarned || 0;
+        this.currentSession.starsEarned += result.starRating || 0;
         this.currentSession.maxStreak = Math.max(
           this.currentSession.maxStreak,
           result.streakAfter
         );
 
-        // Calcular tiempo promedio
+        if (result.starRating === 3) {
+          this.currentSession.perfectProblems++;
+        }
+
         const totalTime =
           this.currentSession.averageTime *
             (this.currentSession.totalProblems - 1) +
@@ -128,7 +361,6 @@ class UserProgressService {
         this.currentSession.averageTime =
           totalTime / this.currentSession.totalProblems;
 
-        // Agregar escena si no está ya
         if (!this.currentSession.scenesVisited.includes(result.category)) {
           this.currentSession.scenesVisited.push(result.category);
         }
@@ -139,17 +371,31 @@ class UserProgressService {
         );
       }
 
-      // Actualizar estadísticas globales del usuario
       await this.updateUserStats(problemResult);
 
-      // Actualizar estadísticas diarias
+      if (result.sceneId) {
+        await this.updateSceneProgress(result.sceneId, problemResult);
+      }
+
+      await this.updateMissionProgress("problems", 1);
+      if (result.correct) {
+        await this.updateMissionProgress("accuracy", 1);
+      }
+      if (result.timeTaken < 10) {
+        await this.updateMissionProgress("speed", 1);
+      }
+      if (result.starRating === 3) {
+        await this.updateMissionProgress("mastery", 1);
+      }
+
       await this.updateDailyStats(problemResult);
+      await this.updateWeeklyStats(problemResult);
+      await this.updateMonthlyStats(problemResult);
     } catch (error) {
       console.error("Error recording problem result:", error);
     }
   }
 
-  // Actualizar estadísticas globales del usuario
   private async updateUserStats(result: ProblemResult): Promise<void> {
     try {
       const statsString = await AsyncStorage.getItem("user_stats");
@@ -169,24 +415,43 @@ class UserProgressService {
             lastSession: "",
             achievements: [],
             dailyStats: [],
+            totalGems: 0,
+            totalStars: 0,
+            perfectProblems: 0,
+            missionsCompleted: 0,
+            ageGroup: "adults",
+            streakInfo: this.initializeStreakInfo(),
+            sceneProgress: {},
+            dailyMissions: [],
+            weeklyStats: [],
+            monthlyStats: [],
           };
 
-      // Actualizar estadísticas
       stats.totalProblems++;
       if (result.correct) stats.totalCorrect++;
       stats.totalXp += result.xpEarned;
+      stats.totalGems += result.gemsEarned || 0;
+      stats.totalStars += result.starRating || 0;
+      if (result.starRating === 3) stats.perfectProblems++;
+      
       stats.currentLevel = result.currentLevel;
       stats.maxStreak = Math.max(stats.maxStreak, result.streakAfter);
       stats.streak = result.streakAfter;
       stats.lastSession = result.sessionId;
 
-      // Calcular tiempo promedio global
       const totalTime =
         stats.averageTime * (stats.totalProblems - 1) + result.timeTaken;
       stats.averageTime = totalTime / stats.totalProblems;
 
-      // Actualizar categorías favoritas y débiles
       await this.updateCategoryStats(stats, result);
+
+      if (result.achievementsUnlocked) {
+        result.achievementsUnlocked.forEach(achievement => {
+          if (!stats.achievements.includes(achievement)) {
+            stats.achievements.push(achievement);
+          }
+        });
+      }
 
       await AsyncStorage.setItem("user_stats", JSON.stringify(stats));
     } catch (error) {
@@ -194,7 +459,6 @@ class UserProgressService {
     }
   }
 
-  // Actualizar estadísticas de categorías
   private async updateCategoryStats(
     stats: UserStats,
     result: ProblemResult
@@ -218,11 +482,9 @@ class UserProgressService {
       catStat.total++;
       if (result.correct) catStat.correct++;
 
-      // Actualizar tiempo promedio de la categoría
       const totalTime = catStat.averageTime * oldTotal + result.timeTaken;
       catStat.averageTime = totalTime / catStat.total;
 
-      // Determinar categoría favorita (mejor accuracy)
       let bestCategory = "entrance";
       let bestAccuracy = 0;
       let worstCategory = "entrance";
@@ -254,7 +516,6 @@ class UserProgressService {
     }
   }
 
-  // Actualizar estadísticas diarias
   private async updateDailyStats(result: ProblemResult): Promise<void> {
     try {
       const today = new Date().toISOString().split("T")[0];
@@ -277,7 +538,6 @@ class UserProgressService {
       todayStats.accuracy =
         (oldCorrect + (result.correct ? 1 : 0)) / todayStats.problems;
 
-      // Mantener solo los últimos 30 días
       stats.dailyStats = stats.dailyStats.slice(-30);
 
       await AsyncStorage.setItem("user_stats", JSON.stringify(stats));
@@ -286,31 +546,82 @@ class UserProgressService {
     }
   }
 
-  // Finalizar sesión actual
-  async endSession(): Promise<UserSession | null> {
-    if (!this.currentSession) return null;
-
-    this.currentSession.endTime = Date.now();
-
+  private async updateWeeklyStats(result: ProblemResult): Promise<void> {
     try {
-      await AsyncStorage.setItem(
-        `session_${this.currentSession.sessionId}`,
-        JSON.stringify(this.currentSession)
-      );
-      const session = this.currentSession;
-      this.currentSession = null;
-      return session;
+      const stats = await this.getUserStats();
+      if (!stats) return;
+
+      const now = new Date();
+      const weekYear = now.getFullYear();
+      const weekNumber = this.getWeekNumber(now);
+      const weekKey = `${weekYear}-W${weekNumber}`;
+
+      let weekStats = stats.weeklyStats.find(w => w.week === weekKey);
+      if (!weekStats) {
+        weekStats = { week: weekKey, problems: 0, xp: 0, missions: 0, achievements: 0 };
+        stats.weeklyStats.push(weekStats);
+      }
+
+      weekStats.problems++;
+      weekStats.xp += result.xpEarned;
+      if (result.achievementsUnlocked) {
+        weekStats.achievements += result.achievementsUnlocked.length;
+      }
+
+      stats.weeklyStats = stats.weeklyStats.slice(-12);
+
+      await AsyncStorage.setItem("user_stats", JSON.stringify(stats));
     } catch (error) {
-      console.error("Error ending session:", error);
-      return null;
+      console.error("Error updating weekly stats:", error);
     }
   }
 
-  // Obtener sesión actual
-  getCurrentSession(): UserSession | null {
-    return this.currentSession;
+  private async updateMonthlyStats(result: ProblemResult): Promise<void> {
+    try {
+      const stats = await this.getUserStats();
+      if (!stats) return;
+
+      const now = new Date();
+      const monthKey = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}`;
+
+      let monthStats = stats.monthlyStats.find(m => m.month === monthKey);
+      if (!monthStats) {
+        monthStats = { 
+          month: monthKey, 
+          totalXP: 0, 
+          streakDays: 0, 
+          perfectDays: 0, 
+          achievements: 0 
+        };
+        stats.monthlyStats.push(monthStats);
+      }
+
+      monthStats.totalXP += result.xpEarned;
+      monthStats.streakDays = stats.streakInfo.current;
+      if (result.starRating === 3) {
+        monthStats.perfectDays++;
+      }
+      if (result.achievementsUnlocked) {
+        monthStats.achievements += result.achievementsUnlocked.length;
+      }
+
+      stats.monthlyStats = stats.monthlyStats.slice(-12);
+
+      await AsyncStorage.setItem("user_stats", JSON.stringify(stats));
+    } catch (error) {
+      console.error("Error updating monthly stats:", error);
+    }
   }
 
+  private getWeekNumber(date: Date): number {
+    const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+    const dayNum = d.getUTCDay() || 7;
+    d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+    return Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+  }
+
+  async getTodayMissions(): Promise<DailyMissionProgress[]> {
   // Obtener estadísticas del usuario
   async getUserStats(): Promise<UserStats | null> {
     try {

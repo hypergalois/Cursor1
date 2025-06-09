@@ -8,6 +8,9 @@ import {
   Animated,
   Dimensions,
   Alert,
+  PanResponder,
+  GestureResponderEvent,
+  PanResponderGestureState,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect } from "@react-navigation/native";
@@ -23,8 +26,17 @@ import { GameHeader } from "../components/GameHeader";
 import MinoMascot from "../components/MinoMascot";
 import SceneAssets from "../components/SceneAssets";
 import ProblemEffects from "../components/ProblemEffects";
+import LevelProgression, {
+  useLevelProgression,
+} from "../components/LevelProgression";
 import AdaptiveDifficulty from "../utils/AdaptiveDifficulty";
 import UserProgressService from "../services/UserProgress";
+import AdaptiveProblemGenerator, {
+  AdaptiveProblem,
+  ProblemGenerationRequest,
+} from "../services/AdaptiveProblemGenerator";
+import PerformanceAnalytics from "../services/PerformanceAnalytics";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 interface ProblemScreenProps {
   navigation: any;
@@ -42,7 +54,30 @@ interface Problem {
   explanation?: string;
 }
 
-const { width } = Dimensions.get("window");
+// ✅ NUEVO: Interface para usuario con información de edad
+interface UserProfile {
+  ageGroup: "kids" | "teens" | "adults" | "seniors";
+  name: string;
+  preferences: {
+    highContrast: boolean;
+    largeText: boolean;
+    soundEnabled: boolean;
+    hapticsEnabled: boolean;
+  };
+}
+
+// ✅ NUEVO: Interface para gestos
+interface GestureState {
+  swipeThreshold: number;
+  doubleTapDelay: number;
+  longPressDelay: number;
+  lastTap: number;
+  tapCount: number;
+  isLongPressing: boolean;
+  swipeDirection: "left" | "right" | "up" | "down" | null;
+}
+
+const { width, height } = Dimensions.get("window");
 
 export const ProblemScreen: React.FC<ProblemScreenProps> = ({
   navigation,
@@ -79,11 +114,454 @@ export const ProblemScreen: React.FC<ProblemScreenProps> = ({
   const [autoNavTimer, setAutoNavTimer] = useState<NodeJS.Timeout | null>(null);
   const lastProblemIdRef = useRef<string>("");
 
+  // ✅ NUEVO: Estados para gestos intuitivos
+  const [gestureState, setGestureState] = useState<GestureState>({
+    swipeThreshold: 50,
+    doubleTapDelay: 300,
+    longPressDelay: 600,
+    lastTap: 0,
+    tapCount: 0,
+    isLongPressing: false,
+    swipeDirection: null,
+  });
+  const [showExplanation, setShowExplanation] = useState(false);
+  const [zoomLevel, setZoomLevel] = useState(1);
+  const [swipeIndicator, setSwipeIndicator] = useState<{
+    visible: boolean;
+    direction: string;
+    opacity: Animated.Value;
+  }>({
+    visible: false,
+    direction: "",
+    opacity: new Animated.Value(0),
+  });
+
+  // ✅ NUEVO: Servicios de IA adaptativa
+  const [problemGenerator] = useState(() =>
+    AdaptiveProblemGenerator.getInstance()
+  );
+  const [analytics] = useState(() => PerformanceAnalytics.getInstance());
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [useAdaptiveProblems, setUseAdaptiveProblems] = useState(false);
+
+  // ✅ NUEVO: Sistema de progresión de nivel integrado
+  const [userStats, setUserStats] = useState<any>(null);
+  const [showLevelUpAnimation, setShowLevelUpAnimation] = useState(false);
+  const {
+    totalXP,
+    currentLevel: userLevel,
+    addXP,
+    getLevelProgress,
+    hasLevelUp,
+    processLevelUpQueue,
+  } = useLevelProgression(userStats?.totalXp || 0);
+
   // Animaciones
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const shakeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const progressAnim = useRef(new Animated.Value(0)).current;
+
+  // ✅ NUEVO: Animaciones para gestos
+  const swipeProgressAnim = useRef(new Animated.Value(0)).current;
+  const hintPulseAnim = useRef(new Animated.Value(1)).current;
+  const zoomAnim = useRef(new Animated.Value(1)).current;
+  const gestureIndicatorAnim = useRef(new Animated.Value(0)).current;
+
+  // ✅ NUEVO: Longpress timer
+  const longPressTimer = useRef<NodeJS.Timeout | null>(null);
+
+  // ✅ NUEVO: PanResponder para gestos avanzados
+  const panResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (evt, gestureState) => {
+        // Activar solo si hay movimiento significativo
+        return Math.abs(gestureState.dx) > 10 || Math.abs(gestureState.dy) > 10;
+      },
+      onPanResponderGrant: (evt, gestureState) => {
+        // Inicio del gesto
+        swipeProgressAnim.setValue(0);
+      },
+      onPanResponderMove: (evt, gestureState) => {
+        // Durante el movimiento
+        const { dx, dy } = gestureState;
+        const progress = Math.min(Math.abs(dx) / 50, 1);
+
+        swipeProgressAnim.setValue(progress);
+
+        // Mostrar indicador de dirección
+        if (Math.abs(dx) > 20) {
+          const direction = dx > 0 ? "right" : "left";
+          showSwipeIndicator(direction);
+        }
+      },
+      onPanResponderRelease: (evt, gestureState) => {
+        // Fin del gesto
+        handleSwipeGesture(gestureState);
+        hideSwipeIndicator();
+
+        Animated.timing(swipeProgressAnim, {
+          toValue: 0,
+          duration: 200,
+          useNativeDriver: true,
+        }).start();
+      },
+    })
+  ).current;
+
+  // ✅ FUNCIÓN: Mostrar indicador de swipe
+  const showSwipeIndicator = (direction: string) => {
+    setSwipeIndicator((prev) => ({
+      ...prev,
+      visible: true,
+      direction,
+    }));
+
+    Animated.timing(swipeIndicator.opacity, {
+      toValue: 0.8,
+      duration: 200,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  // ✅ FUNCIÓN: Ocultar indicador de swipe
+  const hideSwipeIndicator = () => {
+    Animated.timing(swipeIndicator.opacity, {
+      toValue: 0,
+      duration: 200,
+      useNativeDriver: true,
+    }).start(() => {
+      setSwipeIndicator((prev) => ({ ...prev, visible: false }));
+    });
+  };
+
+  // ✅ FUNCIÓN: Manejar gestos de swipe
+  const handleSwipeGesture = (gestureState: PanResponderGestureState) => {
+    const { dx, dy, vx, vy } = gestureState;
+    const threshold = 50;
+    const velocityThreshold = 0.3;
+
+    // Swipe horizontal (siguiente/anterior problema)
+    if (Math.abs(dx) > threshold && Math.abs(vx) > velocityThreshold) {
+      if (dx > 0) {
+        // Swipe derecha - Problema anterior (si está disponible)
+        console.log("👆 Swipe derecha detectado");
+        handleSwipeNavigation("previous");
+      } else {
+        // Swipe izquierda - Siguiente problema
+        console.log("👆 Swipe izquierda detectado");
+        handleSwipeNavigation("next");
+      }
+    }
+
+    // Swipe vertical
+    else if (Math.abs(dy) > threshold && Math.abs(vy) > velocityThreshold) {
+      if (dy < 0) {
+        // Swipe arriba - Mostrar pista
+        console.log("👆 Swipe arriba detectado - Mostrar pista");
+        handleSwipeHint();
+      } else {
+        // Swipe abajo - Ocultar elementos extra
+        console.log("👆 Swipe abajo detectado - Limpiar interfaz");
+        handleSwipeClean();
+      }
+    }
+  };
+
+  // ✅ FUNCIÓN: Navegación por swipe
+  const handleSwipeNavigation = (direction: "next" | "previous") => {
+    if (isNavigating || !isAnswered) return;
+
+    if (direction === "next") {
+      // Solo avanzar si ya respondió
+      if (isAnswered) {
+        console.log("🔄 Navegación por swipe: Siguiente problema");
+        handleContinue();
+      }
+    } else {
+      // Navegar a problema anterior (limitado)
+      console.log(
+        "🔄 Navegación por swipe: Problema anterior (no implementado)"
+      );
+      // TODO: Implementar historial de problemas si es necesario
+    }
+  };
+
+  // ✅ FUNCIÓN: Pista por swipe
+  const handleSwipeHint = () => {
+    if (!isAnswered && !showHint) {
+      console.log("💡 Pista activada por swipe");
+      handleHint();
+
+      // Animación de feedback
+      Animated.sequence([
+        Animated.timing(hintPulseAnim, {
+          toValue: 1.2,
+          duration: 150,
+          useNativeDriver: true,
+        }),
+        Animated.timing(hintPulseAnim, {
+          toValue: 1,
+          duration: 150,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
+  };
+
+  // ✅ FUNCIÓN: Limpiar interfaz por swipe
+  const handleSwipeClean = () => {
+    console.log("🧹 Limpiando interfaz por swipe");
+    setShowHint(false);
+    setShowExplanation(false);
+  };
+
+  // ✅ FUNCIÓN: Manejar taps (simple, doble, long press)
+  const handleTapGesture = (evt: GestureResponderEvent) => {
+    const now = Date.now();
+    const timeSinceLastTap = now - gestureState.lastTap;
+
+    // Limpiar timer de long press si existe
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+
+    if (timeSinceLastTap < gestureState.doubleTapDelay) {
+      // Doble tap detectado
+      console.log("👆👆 Doble tap detectado");
+      handleDoubleTap();
+
+      setGestureState((prev) => ({
+        ...prev,
+        tapCount: 0,
+        lastTap: 0,
+      }));
+    } else {
+      // Primer tap - iniciar timer para long press
+      setGestureState((prev) => ({
+        ...prev,
+        tapCount: 1,
+        lastTap: now,
+      }));
+
+      // Timer para long press
+      longPressTimer.current = setTimeout(() => {
+        console.log("👆⏰ Long press detectado");
+        handleLongPress();
+      }, gestureState.longPressDelay);
+    }
+  };
+
+  // ✅ FUNCIÓN: Doble tap para pista
+  const handleDoubleTap = () => {
+    if (!isAnswered && !showHint) {
+      console.log("💡 Pista activada por doble tap");
+      handleHint();
+
+      // Feedback visual
+      Animated.sequence([
+        Animated.timing(scaleAnim, {
+          toValue: 1.1,
+          duration: 100,
+          useNativeDriver: true,
+        }),
+        Animated.timing(scaleAnim, {
+          toValue: 1,
+          duration: 100,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
+  };
+
+  // ✅ FUNCIÓN: Long press para explicación
+  const handleLongPress = () => {
+    if (currentProblem?.explanation) {
+      console.log("📚 Explicación activada por long press");
+      setShowExplanation(true);
+
+      // Vibración suave si está habilitada
+      if (userProfile?.preferences.hapticsEnabled) {
+        // Implementar vibración aquí si es necesario
+      }
+
+      // Feedback visual
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }).start();
+    }
+  };
+
+  // ✅ FUNCIÓN: Manejar pinch para zoom (accesibilidad)
+  const handlePinchGesture = (scale: number) => {
+    // Limitar zoom entre 0.8x y 2x para accesibilidad
+    const newZoom = Math.max(0.8, Math.min(2, scale));
+    setZoomLevel(newZoom);
+
+    Animated.timing(zoomAnim, {
+      toValue: newZoom,
+      duration: 100,
+      useNativeDriver: true,
+    }).start();
+
+    console.log(`🔍 Zoom ajustado a ${newZoom.toFixed(1)}x`);
+  };
+
+  // ✅ FUNCIÓN: Mostrar tutorial de gestos para nuevos usuarios
+  const showGestureTutorial = () => {
+    if (!userProfile) return;
+
+    const ageGroup = userProfile.ageGroup;
+    const tutorials = {
+      kids: "👆 ¡Desliza para continuar! 👆👆 ¡Toca dos veces para pistas!",
+      teens: "👆 Swipe to continue! 👆👆 Double tap for hints!",
+      adults: "👆 Deslice para navegar 👆👆 Doble toque para pistas",
+      seniors:
+        "👆 Deslice hacia la izquierda para continuar 👆👆 Toque dos veces para ayuda",
+    };
+
+    Alert.alert("🎯 Gestos Intuitivos", tutorials[ageGroup], [
+      { text: "Entendido", style: "default" },
+    ]);
+  };
+
+  // ✅ EFECTO: Mostrar tutorial en primera sesión
+  useEffect(() => {
+    const checkFirstTime = async () => {
+      try {
+        const hasSeenTutorial = await AsyncStorage.getItem(
+          "gestureTutorialShown"
+        );
+        if (!hasSeenTutorial && userProfile) {
+          setTimeout(showGestureTutorial, 2000);
+          await AsyncStorage.setItem("gestureTutorialShown", "true");
+        }
+      } catch (error) {
+        console.error("Error checking tutorial status:", error);
+      }
+    };
+
+    checkFirstTime();
+  }, [userProfile]);
+
+  // ✅ FUNCIÓN: Limpiar timers al desmontar
+  useEffect(() => {
+    return () => {
+      if (longPressTimer.current) {
+        clearTimeout(longPressTimer.current);
+      }
+      if (autoNavTimer) {
+        clearTimeout(autoNavTimer);
+      }
+    };
+  }, []);
+
+  // ✅ FUNCIÓN: Cargar estadísticas del usuario
+  const loadUserStats = async () => {
+    try {
+      const stats = await userProgress.getUserStats();
+      if (stats) {
+        setUserStats(stats);
+      }
+    } catch (error) {
+      console.error("Error loading user stats:", error);
+    }
+  };
+
+  // ✅ NUEVO: Cargar perfil de usuario para IA adaptativa
+  const loadUserProfile = async () => {
+    try {
+      // Intentar cargar el perfil desde AsyncStorage
+      const profileData = await AsyncStorage.getItem("userProfile");
+      if (profileData) {
+        const profile = JSON.parse(profileData);
+        setUserProfile(profile);
+        setUseAdaptiveProblems(true);
+        console.log(
+          "🧠 Perfil cargado, usando IA adaptativa:",
+          profile.ageGroup
+        );
+      } else {
+        // Si no hay perfil, usar sistema tradicional
+        setUseAdaptiveProblems(false);
+        console.log("📚 Sin perfil, usando sistema tradicional");
+      }
+    } catch (error) {
+      console.error("Error loading user profile:", error);
+      setUseAdaptiveProblems(false);
+    }
+  };
+
+  // ✅ NUEVO: Generar problema adaptativo usando IA
+  const generateAdaptiveProblem = async (): Promise<Problem> => {
+    if (!userProfile || !useAdaptiveProblems) {
+      return generateProblemByScene(); // Fallback al sistema tradicional
+    }
+
+    try {
+      const request: ProblemGenerationRequest = {
+        userId: "current_user",
+        userProfile: userProfile,
+        sessionContext: {
+          currentStreak: streak,
+          recentPerformance: lives / 3, // Convertir vidas a porcentaje de rendimiento
+          timeSpent: (Date.now() - startTime) / 1000 / 60, // minutos
+          categoriesPlayed: [problemType],
+          currentScene: currentScene,
+        },
+        preferences: {
+          preferredCategories: [problemType],
+          maxDifficulty: difficulty,
+        },
+        adaptiveGoals: {
+          targetWeaknesses: streak < 3,
+          reinforceStrengths: streak >= 5,
+          maintainEngagement: true,
+          preventBurnout: lives <= 1,
+          developConfidence: true,
+          encourageExploration: false,
+          buildFundamentalSkills: true,
+        },
+      };
+
+      const adaptiveProblem: AdaptiveProblem =
+        await problemGenerator.generateAgeAdaptiveProblem(request);
+
+      console.log("🧠 Problema adaptativo generado:", {
+        ageGroup: userProfile.ageGroup,
+        difficulty: adaptiveProblem.difficulty,
+        cognitiveLoad: adaptiveProblem.adaptiveFactors.cognitiveLoad,
+        context: adaptiveProblem.metadata.realWorldContext,
+      });
+
+      // Convertir AdaptiveProblem a Problem (interfaz local)
+      return {
+        id: adaptiveProblem.id,
+        question: adaptiveProblem.problem,
+        options: adaptiveProblem.options,
+        correctAnswer: parseInt(adaptiveProblem.correctAnswer),
+        difficulty: adaptiveProblem.difficulty as any,
+        type: adaptiveProblem.type as any,
+        hint: adaptiveProblem.hints[0],
+        explanation: adaptiveProblem.explanation,
+      };
+    } catch (error) {
+      console.error("Error generando problema adaptativo:", error);
+      return generateProblemByScene(); // Fallback
+    }
+  };
+
+  // ✅ FUNCIÓN: Manejar level up
+  const handleLevelUp = () => {
+    const newLevel = processLevelUpQueue();
+    if (newLevel) {
+      setShowLevelUpAnimation(true);
+      setTimeout(() => setShowLevelUpAnimation(false), 3000);
+    }
+  };
 
   // ✅ FUNCIÓN DE RESETEO COMPLETO DEL ESTADO
   const resetProblemState = () => {
@@ -525,6 +1003,50 @@ export const ProblemScreen: React.FC<ProblemScreenProps> = ({
     return options.sort(() => Math.random() - 0.5);
   };
 
+  // ✅ FUNCIÓN: Inicializar problema con IA adaptativa
+  const initializeProblem = async () => {
+    console.log("🔄 Inicializando nuevo problema...");
+    resetProblemState();
+    setStartTime(Date.now());
+
+    try {
+      let newProblem: Problem;
+
+      // ✅ USAR IA ADAPTATIVA SI ESTÁ DISPONIBLE
+      if (useAdaptiveProblems && userProfile) {
+        console.log("🧠 Generando problema con IA adaptativa");
+        newProblem = await generateAdaptiveProblem();
+
+        // ✅ INICIAR SESIÓN DE ANALYTICS
+        await analytics.startSession();
+      } else {
+        console.log("📚 Generando problema tradicional");
+        newProblem = generateProblemByScene();
+      }
+
+      setCurrentProblem(newProblem);
+
+      // Animación de entrada
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 600,
+        useNativeDriver: true,
+      }).start();
+
+      console.log("✅ Problema inicializado:", {
+        id: newProblem.id,
+        adaptive: useAdaptiveProblems,
+        ageGroup: userProfile?.ageGroup,
+        difficulty: newProblem.difficulty,
+      });
+    } catch (error) {
+      console.error("❌ Error inicializando problema:", error);
+      // Fallback al sistema tradicional
+      const fallbackProblem = generateProblemByScene();
+      setCurrentProblem(fallbackProblem);
+    }
+  };
+
   // ✅ EFECTO QUE SE EJECUTA CADA VEZ QUE LA PANTALLA SE ENFOCA
   useFocusEffect(
     React.useCallback(() => {
@@ -535,13 +1057,26 @@ export const ProblemScreen: React.FC<ProblemScreenProps> = ({
           // ✅ RESETEAR ESTADO COMPLETAMENTE
           resetProblemState();
 
+          // ✅ CARGAR ESTADÍSTICAS DEL USUARIO
+          await loadUserStats();
+
+          // ✅ CARGAR PERFIL PARA IA ADAPTATIVA
+          await loadUserProfile();
+
+          // ✅ VERIFICAR LEVEL UP PENDIENTE
+          if (hasLevelUp) {
+            handleLevelUp();
+          }
+
           // Inicializar sesión si no existe
           if (!userProgress.getCurrentSession()) {
             await userProgress.startSession();
           }
 
-          // ✅ GENERAR NUEVO PROBLEMA (evitando duplicados)
-          const problem = generateProblemByScene();
+          // ✅ GENERAR NUEVO PROBLEMA (IA adaptativa o tradicional)
+          const problem = useAdaptiveProblems
+            ? await generateAdaptiveProblem()
+            : generateProblemByScene();
           setCurrentProblem(problem);
           setStartTime(Date.now());
 
@@ -550,6 +1085,8 @@ export const ProblemScreen: React.FC<ProblemScreenProps> = ({
             question: problem.question.substring(0, 50) + "...",
             scene: currentScene,
             type: problemType,
+            userLevel: userLevel,
+            totalXP: totalXP,
           });
 
           // Animación de entrada
@@ -665,6 +1202,9 @@ export const ProblemScreen: React.FC<ProblemScreenProps> = ({
 
       setXp((prev) => prev + xpGained);
 
+      // ✅ NUEVO: Añadir XP al sistema de progresión
+      addXP(xpGained);
+
       // Determinar tipo de efecto
       if (newStreak >= 5) {
         setCurrentEffect("celebration");
@@ -739,6 +1279,29 @@ export const ProblemScreen: React.FC<ProblemScreenProps> = ({
       });
     } catch (error) {
       console.error("Error registering problem result:", error);
+    }
+
+    // ✅ NUEVO: Registrar en PerformanceAnalytics para IA adaptativa
+    if (useAdaptiveProblems && userProfile && currentProblem) {
+      try {
+        await analytics.recordProblemResponse({
+          correct,
+          responseTime: timeSpent,
+          difficulty: currentProblem.difficulty,
+          category: problemType,
+          operation: currentProblem.type,
+          hintsUsed,
+          retries: 0, // TODO: Implementar sistema de reintentos
+        });
+        console.log("📊 Respuesta registrada en PerformanceAnalytics:", {
+          ageGroup: userProfile.ageGroup,
+          correct,
+          responseTime: timeSpent,
+          difficulty: currentProblem.difficulty,
+        });
+      } catch (error) {
+        console.error("Error registrando en analytics:", error);
+      }
     }
 
     // ✅ NAVEGACIÓN AUTOMÁTICA TRAS 3 SEGUNDOS
@@ -857,6 +1420,18 @@ export const ProblemScreen: React.FC<ProblemScreenProps> = ({
       />
 
       <GameHeader xp={xp} lives={lives} level={currentLevel} />
+
+      {/* ✅ Progresión de nivel integrada */}
+      {userStats && (
+        <View style={styles.levelProgressContainer}>
+          <LevelProgression
+            currentXP={getLevelProgress().currentXP}
+            level={userLevel}
+            animated={true}
+            showDetails={false}
+          />
+        </View>
+      )}
 
       <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
         {/* Contexto de la escena */}
@@ -1092,16 +1667,16 @@ const styles = StyleSheet.create({
     lineHeight: 28,
   },
   hintContainer: {
-    backgroundColor: colors.accent + "20",
+    backgroundColor: colors.text.accent + "20",
     padding: spacing.md,
     borderRadius: borderRadius.md,
     marginTop: spacing.md,
     borderLeftWidth: 4,
-    borderLeftColor: colors.accent,
+    borderLeftColor: colors.text.accent,
   },
   hintText: {
     ...typography.body,
-    color: colors.accent,
+    color: colors.text.accent,
     fontStyle: "italic",
     lineHeight: 22,
   },
@@ -1163,15 +1738,15 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   hintButton: {
-    backgroundColor: colors.accent + "20",
+    backgroundColor: colors.text.accent + "20",
     padding: spacing.md,
     borderRadius: borderRadius.md,
     borderWidth: 1,
-    borderColor: colors.accent,
+    borderColor: colors.text.accent,
   },
   hintButtonText: {
     ...typography.body,
-    color: colors.accent,
+    color: colors.text.accent,
     textAlign: "center",
     fontWeight: "600",
   },
@@ -1201,7 +1776,7 @@ const styles = StyleSheet.create({
   },
   streakText: {
     ...typography.body,
-    color: colors.gold,
+    color: colors.duolingo.gold,
     fontWeight: "600",
     textAlign: "center",
   },
@@ -1236,6 +1811,15 @@ const styles = StyleSheet.create({
   },
   disabledButton: {
     opacity: 0.6,
+  },
+  // ✅ NUEVO: Estilo para progresión de nivel
+  levelProgressContainer: {
+    backgroundColor: colors.background.paper,
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.sm,
+    borderRadius: borderRadius.md,
+    padding: spacing.sm,
+    ...shadows.small,
   },
 });
 

@@ -34,24 +34,83 @@ export default function App() {
                 screenOptions={{
                   headerShown: false,
                   animation: "slide_from_right",
+                  animationDuration: 300,
+                  gestureEnabled: true,
+                  gestureDirection: "horizontal",
                 }}
               >
                 <Stack.Screen
                   name="Onboarding"
                   component={OnboardingScreen}
-                  options={{ animation: "fade" }}
+                  options={{
+                    animation: "fade",
+                    animationDuration: 500,
+                    gestureEnabled: false,
+                  }}
                 />
                 <Stack.Screen
                   name="Welcome"
                   component={WelcomeScreen}
-                  options={{ animation: "fade" }}
+                  options={{
+                    animation: "fade",
+                    animationDuration: 400,
+                    gestureEnabled: false,
+                  }}
                 />
-                <Stack.Screen name="Dungeon" component={DungeonScreen} />
-                <Stack.Screen name="Choice" component={ChoiceScreen} />
-                <Stack.Screen name="Problem" component={ProblemScreen} />
-                <Stack.Screen name="Result" component={ResultScreen} />
-                <Stack.Screen name="Progress" component={ProgressScreen} />
-                <Stack.Screen name="Profile" component={ProfileScreen} />
+                <Stack.Screen
+                  name="Dungeon"
+                  component={DungeonScreen}
+                  options={{
+                    animation: "slide_from_bottom",
+                    animationDuration: 350,
+                    gestureEnabled: true,
+                  }}
+                />
+                <Stack.Screen
+                  name="Choice"
+                  component={ChoiceScreen}
+                  options={{
+                    animation: "slide_from_right",
+                    animationDuration: 300,
+                    gestureEnabled: true,
+                  }}
+                />
+                <Stack.Screen
+                  name="Problem"
+                  component={ProblemScreen}
+                  options={{
+                    animation: "slide_from_right",
+                    animationDuration: 250,
+                    gestureEnabled: false, // Evitar navegación accidental durante problema
+                  }}
+                />
+                <Stack.Screen
+                  name="Result"
+                  component={ResultScreen}
+                  options={{
+                    animation: "slide_from_bottom",
+                    animationDuration: 400,
+                    gestureEnabled: false, // Forzar uso de botones
+                  }}
+                />
+                <Stack.Screen
+                  name="Progress"
+                  component={ProgressScreen}
+                  options={{
+                    animation: "slide_from_right",
+                    animationDuration: 300,
+                    gestureEnabled: true,
+                  }}
+                />
+                <Stack.Screen
+                  name="Profile"
+                  component={ProfileScreen}
+                  options={{
+                    animation: "slide_from_right",
+                    animationDuration: 300,
+                    gestureEnabled: true,
+                  }}
+                />
               </Stack.Navigator>
             </NavigationContainer>
           </AudioProvider>

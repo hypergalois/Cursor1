@@ -469,7 +469,7 @@ export const DungeonMap: React.FC<DungeonMapProps> = ({
           </Text>
         </View>
 
-        {userProfile && (
+        {userProfile && typeof userProfile.totalXP === "number" && (
           <View style={styles.userStats}>
             <View style={styles.statItem}>
               <Text style={styles.statEmoji}>✨</Text>
@@ -478,7 +478,9 @@ export const DungeonMap: React.FC<DungeonMapProps> = ({
             </View>
             <View style={styles.statItem}>
               <Text style={styles.statEmoji}>🔥</Text>
-              <Text style={styles.statValue}>{userProfile.streakDays}</Text>
+              <Text style={styles.statValue}>
+                {userProfile.streakDays || 0}
+              </Text>
               <Text style={styles.statLabel}>Racha</Text>
             </View>
             <View style={styles.statItem}>
@@ -589,126 +591,128 @@ export const DungeonMap: React.FC<DungeonMapProps> = ({
       </ScrollView>
 
       <Modal
+        animationType="fade"
+        transparent={true}
         visible={selectedLevel.visible}
-        transparent
-        animationType="slide"
         onRequestClose={() =>
           setSelectedLevel({ ...selectedLevel, visible: false })
         }
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalIcon}>{selectedLevel.level.icon}</Text>
-              <View style={styles.modalTitleContainer}>
-                <Text style={styles.modalTitle}>
-                  {selectedLevel.level.title}
-                </Text>
-                <Text style={styles.modalSubtitle}>
-                  Nivel {selectedLevel.level.id}
-                </Text>
+        {selectedLevel.visible && (
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalIcon}>{selectedLevel.level.icon}</Text>
+                <View style={styles.modalTitleContainer}>
+                  <Text style={styles.modalTitle}>
+                    {selectedLevel.level.title}
+                  </Text>
+                  <Text style={styles.modalSubtitle}>
+                    Nivel {selectedLevel.level.id}
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  style={styles.closeButton}
+                  onPress={() =>
+                    setSelectedLevel({ ...selectedLevel, visible: false })
+                  }
+                >
+                  <Text style={styles.closeButtonText}>✕</Text>
+                </TouchableOpacity>
               </View>
-              <TouchableOpacity
-                style={styles.closeButton}
-                onPress={() =>
-                  setSelectedLevel({ ...selectedLevel, visible: false })
-                }
-              >
-                <Text style={styles.closeButtonText}>✕</Text>
-              </TouchableOpacity>
-            </View>
 
-            <Text style={styles.modalDescription}>
-              {selectedLevel.level.description}
-            </Text>
-
-            <View style={styles.motivationalMessage}>
-              <Text style={styles.motivationalText}>
-                {getAgeAppropriateMessage(selectedLevel.level)}
+              <Text style={styles.modalDescription}>
+                {selectedLevel.level.description}
               </Text>
-            </View>
 
-            <View style={styles.rewardsSection}>
-              <Text style={styles.sectionTitle}>🎁 Recompensas</Text>
-              <View style={styles.rewardsList}>
-                <View style={styles.rewardItem}>
-                  <Text style={styles.rewardEmoji}>✨</Text>
-                  <Text style={styles.rewardText}>
-                    {selectedLevel.level.rewards.xp} XP
-                  </Text>
-                </View>
-                <View style={styles.rewardItem}>
-                  <Text style={styles.rewardEmoji}>⭐</Text>
-                  <Text style={styles.rewardText}>
-                    {selectedLevel.level.rewards.stars} Estrellas
-                  </Text>
-                </View>
-                {selectedLevel.level.rewards.gems && (
-                  <View style={styles.rewardItem}>
-                    <Text style={styles.rewardEmoji}>💎</Text>
-                    <Text style={styles.rewardText}>
-                      {selectedLevel.level.rewards.gems} Gemas
-                    </Text>
-                  </View>
-                )}
-                {selectedLevel.level.rewards.special && (
-                  <View style={styles.specialRewardItem}>
-                    <Text style={styles.specialRewardText}>
-                      🏆 {selectedLevel.level.rewards.special}
-                    </Text>
-                  </View>
-                )}
-              </View>
-            </View>
-
-            {selectedLevel.level.achievements.length > 0 && (
-              <View style={styles.achievementsSection}>
-                <Text style={styles.sectionTitle}>
-                  🏅 Logros Desbloqueables
+              <View style={styles.motivationalMessage}>
+                <Text style={styles.motivationalText}>
+                  {getAgeAppropriateMessage(selectedLevel.level)}
                 </Text>
-                <View style={styles.achievementsList}>
-                  {selectedLevel.level.achievements.map(
-                    (achievementId, index) => (
-                      <View key={index} style={styles.achievementItem}>
-                        <Text style={styles.achievementText}>
-                          {achievementId}
-                        </Text>
-                      </View>
-                    )
+              </View>
+
+              <View style={styles.rewardsSection}>
+                <Text style={styles.sectionTitle}>🎁 Recompensas</Text>
+                <View style={styles.rewardsList}>
+                  <View style={styles.rewardItem}>
+                    <Text style={styles.rewardEmoji}>✨</Text>
+                    <Text style={styles.rewardText}>
+                      {selectedLevel.level.rewards.xp} XP
+                    </Text>
+                  </View>
+                  <View style={styles.rewardItem}>
+                    <Text style={styles.rewardEmoji}>⭐</Text>
+                    <Text style={styles.rewardText}>
+                      {selectedLevel.level.rewards.stars} Estrellas
+                    </Text>
+                  </View>
+                  {selectedLevel.level.rewards.gems && (
+                    <View style={styles.rewardItem}>
+                      <Text style={styles.rewardEmoji}>💎</Text>
+                      <Text style={styles.rewardText}>
+                        {selectedLevel.level.rewards.gems} Gemas
+                      </Text>
+                    </View>
+                  )}
+                  {selectedLevel.level.rewards.special && (
+                    <View style={styles.specialRewardItem}>
+                      <Text style={styles.specialRewardText}>
+                        🏆 {selectedLevel.level.rewards.special}
+                      </Text>
+                    </View>
                   )}
                 </View>
               </View>
-            )}
 
-            <TouchableOpacity
-              style={[
-                styles.actionButton,
-                {
-                  backgroundColor: selectedLevel.level.isCompleted
-                    ? colors.success.main
+              {selectedLevel.level.achievements.length > 0 && (
+                <View style={styles.achievementsSection}>
+                  <Text style={styles.sectionTitle}>
+                    🏅 Logros Desbloqueables
+                  </Text>
+                  <View style={styles.achievementsList}>
+                    {selectedLevel.level.achievements.map(
+                      (achievementId, index) => (
+                        <View key={index} style={styles.achievementItem}>
+                          <Text style={styles.achievementText}>
+                            {achievementId}
+                          </Text>
+                        </View>
+                      )
+                    )}
+                  </View>
+                </View>
+              )}
+
+              <TouchableOpacity
+                style={[
+                  styles.actionButton,
+                  {
+                    backgroundColor: selectedLevel.level.isCompleted
+                      ? colors.success.main
+                      : selectedLevel.level.isCurrent
+                      ? colors.primary.main
+                      : colors.text.light,
+                  },
+                ]}
+                onPress={() => {
+                  setSelectedLevel({ ...selectedLevel, visible: false });
+                  onLevelSelect?.(selectedLevel.level.id);
+                }}
+                disabled={!selectedLevel.level.isUnlocked}
+              >
+                <Text style={styles.actionButtonText}>
+                  {selectedLevel.level.isCompleted
+                    ? "✓ Completado"
                     : selectedLevel.level.isCurrent
-                    ? colors.primary.main
-                    : colors.text.light,
-                },
-              ]}
-              onPress={() => {
-                setSelectedLevel({ ...selectedLevel, visible: false });
-                onLevelSelect?.(selectedLevel.level.id);
-              }}
-              disabled={!selectedLevel.level.isUnlocked}
-            >
-              <Text style={styles.actionButtonText}>
-                {selectedLevel.level.isCompleted
-                  ? "✓ Completado"
-                  : selectedLevel.level.isCurrent
-                  ? "🚀 Continuar"
-                  : selectedLevel.level.isUnlocked
-                  ? "▶️ Comenzar"
-                  : "🔒 Bloqueado"}
-              </Text>
-            </TouchableOpacity>
+                    ? "🚀 Continuar"
+                    : selectedLevel.level.isUnlocked
+                    ? "▶️ Comenzar"
+                    : "🔒 Bloqueado"}
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
-        </View>
+        )}
       </Modal>
     </View>
   );

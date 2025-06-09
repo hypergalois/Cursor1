@@ -1,5 +1,6 @@
 import React from "react";
 import { View, Text, StyleSheet, ScrollView } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { RootStackParamList } from "../types/navigation";
 
@@ -24,55 +25,61 @@ const ProgressScreen: React.FC<ProgressScreenProps> = () => {
   ];
 
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.statsContainer}>
-        <Text style={styles.title}>Tu Progreso</Text>
+    <SafeAreaView style={styles.safeArea}>
+      <ScrollView style={styles.container}>
+        <View style={styles.statsContainer}>
+          <Text style={styles.title}>Tu Progreso</Text>
 
-        <View style={styles.statsGrid}>
-          <View style={styles.statCard}>
-            <Text style={styles.statNumber}>{stats.problemsSolved}</Text>
-            <Text style={styles.statLabel}>Problemas Resueltos</Text>
-          </View>
+          <View style={styles.statsGrid}>
+            <View style={styles.statCard}>
+              <Text style={styles.statNumber}>{stats.problemsSolved}</Text>
+              <Text style={styles.statLabel}>Problemas Resueltos</Text>
+            </View>
 
-          <View style={styles.statCard}>
-            <Text style={styles.statNumber}>{stats.correctAnswers}</Text>
-            <Text style={styles.statLabel}>Respuestas Correctas</Text>
-          </View>
+            <View style={styles.statCard}>
+              <Text style={styles.statNumber}>{stats.correctAnswers}</Text>
+              <Text style={styles.statLabel}>Respuestas Correctas</Text>
+            </View>
 
-          <View style={styles.statCard}>
-            <Text style={styles.statNumber}>{stats.currentLevel}</Text>
-            <Text style={styles.statLabel}>Nivel Actual</Text>
-          </View>
+            <View style={styles.statCard}>
+              <Text style={styles.statNumber}>{stats.currentLevel}</Text>
+              <Text style={styles.statLabel}>Nivel Actual</Text>
+            </View>
 
-          <View style={styles.statCard}>
-            <Text style={styles.statNumber}>{stats.totalStars}</Text>
-            <Text style={styles.statLabel}>Estrellas Totales</Text>
+            <View style={styles.statCard}>
+              <Text style={styles.statNumber}>{stats.totalStars}</Text>
+              <Text style={styles.statLabel}>Estrellas Totales</Text>
+            </View>
           </View>
         </View>
-      </View>
 
-      <View style={styles.competencesContainer}>
-        <Text style={styles.sectionTitle}>Competencias</Text>
-        {competences.map((competence, index) => (
-          <View key={index} style={styles.competenceItem}>
-            <Text style={styles.competenceName}>{competence.name}</Text>
-            <View style={styles.progressBar}>
-              <View
-                style={[
-                  styles.progressFill,
-                  { width: `${competence.progress}%` },
-                ]}
-              />
+        <View style={styles.competencesContainer}>
+          <Text style={styles.sectionTitle}>Competencias</Text>
+          {competences.map((competence, index) => (
+            <View key={index} style={styles.competenceItem}>
+              <Text style={styles.competenceName}>{competence.name}</Text>
+              <View style={styles.progressBar}>
+                <View
+                  style={[
+                    styles.progressFill,
+                    { width: `${competence.progress}%` },
+                  ]}
+                />
+              </View>
+              <Text style={styles.progressText}>{competence.progress}%</Text>
             </View>
-            <Text style={styles.progressText}>{competence.progress}%</Text>
-          </View>
-        ))}
-      </View>
-    </ScrollView>
+          ))}
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: "#F5F5F5",
+  },
   container: {
     flex: 1,
     backgroundColor: "#F5F5F5",

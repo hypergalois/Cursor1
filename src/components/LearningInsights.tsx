@@ -149,10 +149,24 @@ export const LearningInsights: React.FC<LearningInsightsProps> = ({
     try {
       setIsLoading(true);
 
-      // ✅ NUEVO: Cargar insights específicos por edad
-      const basicInsights = await analytics.generateAgeAwareInsights(
-        userProfile.ageGroup
-      );
+      // ✅ NUEVO: Cargar insights específicos por edad con fallback
+      const basicInsights = await analytics
+        .generateAgeAwareInsights(userProfile.ageGroup)
+        .catch(() => [
+          {
+            type: "recommendation" as const,
+            title: "¡Comienza tu análisis!",
+            description:
+              "Resuelve más problemas para obtener insights personalizados.",
+            actionable: true,
+            suggestedActions: [
+              "Resuelve 5 problemas",
+              "Practica diferentes categorías",
+            ],
+            confidence: 1.0,
+            priority: "medium" as const,
+          },
+        ]);
       setInsights(basicInsights);
 
       // ✅ NUEVO: Generar diagnóstico cognitivo considerando edad
@@ -176,6 +190,19 @@ export const LearningInsights: React.FC<LearningInsightsProps> = ({
       setLearningPaths(paths);
     } catch (error) {
       console.error("Error initializing insights:", error);
+      // Datos de respaldo en caso de error total
+      setInsights([
+        {
+          type: "recommendation" as const,
+          title: "Comienza tu aventura",
+          description:
+            "¡Resuelve problemas para desbloquear análisis personalizados!",
+          actionable: true,
+          suggestedActions: ["Ir a explorar", "Resolver problemas"],
+          confidence: 1.0,
+          priority: "high" as const,
+        },
+      ]);
     } finally {
       setIsLoading(false);
     }

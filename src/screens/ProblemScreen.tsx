@@ -11,6 +11,7 @@ import {
   PanResponder,
   GestureResponderEvent,
   PanResponderGestureState,
+  ScrollView,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect } from "@react-navigation/native";
@@ -107,12 +108,14 @@ export const ProblemScreen: React.FC<ProblemScreenProps> = ({
   >("none");
   const [showEffect, setShowEffect] = useState(false);
   const [startTime, setStartTime] = useState<number>(Date.now());
-  const [adaptiveDifficulty] = useState(() => AdaptiveDifficulty.getInstance());
-  const [userProgress] = useState(() => UserProgressService.getInstance());
   const [hintsUsed, setHintsUsed] = useState(0);
   const [isNavigating, setIsNavigating] = useState(false);
   const [autoNavTimer, setAutoNavTimer] = useState<NodeJS.Timeout | null>(null);
   const lastProblemIdRef = useRef<string>("");
+
+  // Servicios singleton
+  const adaptiveDifficulty = AdaptiveDifficulty.getInstance();
+  const userProgress = UserProgressService.getInstance();
 
   // ✅ NUEVO: Estados para gestos intuitivos
   const [gestureState, setGestureState] = useState<GestureState>({
@@ -137,10 +140,8 @@ export const ProblemScreen: React.FC<ProblemScreenProps> = ({
   });
 
   // ✅ NUEVO: Servicios de IA adaptativa
-  const [problemGenerator] = useState(() =>
-    AdaptiveProblemGenerator.getInstance()
-  );
-  const [analytics] = useState(() => PerformanceAnalytics.getInstance());
+  const problemGenerator = AdaptiveProblemGenerator.getInstance();
+  const analytics = PerformanceAnalytics.getInstance();
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [useAdaptiveProblems, setUseAdaptiveProblems] = useState(false);
 
@@ -1069,7 +1070,7 @@ export const ProblemScreen: React.FC<ProblemScreenProps> = ({
           }
 
           // Inicializar sesión si no existe
-          if (!userProgress.getCurrentSession()) {
+          if (userProgress && !userProgress.getCurrentSession()) {
             await userProgress.startSession();
           }
 
@@ -1433,170 +1434,185 @@ export const ProblemScreen: React.FC<ProblemScreenProps> = ({
         </View>
       )}
 
-      <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
-        {/* Contexto de la escena */}
-        <View style={[styles.sceneHeader, { borderColor: sceneContext.color }]}>
-          <SceneAssets sceneType={currentScene} size="small" />
-          <View style={styles.sceneInfo}>
-            <Text style={[styles.sceneTitle, { color: sceneContext.color }]}>
-              {sceneContext.title}
-            </Text>
-            <Text style={styles.challengeText}>
-              Desafío Matemático • {difficulty.toUpperCase()}
-            </Text>
-          </View>
-        </View>
-
-        {/* Pregunta */}
-        <Animated.View
-          style={[
-            styles.questionContainer,
-            { transform: [{ translateX: shakeAnim }] },
-          ]}
-        >
-          <Text style={styles.questionText}>{currentProblem.question}</Text>
-
-          {showHint && currentProblem.hint && (
-            <View style={styles.hintContainer}>
-              <Text style={styles.hintText}>{currentProblem.hint}</Text>
-            </View>
-          )}
-        </Animated.View>
-
-        {/* Opciones de respuesta */}
-        <View style={styles.optionsContainer}>
-          {currentProblem.options.map((option, index) => (
-            <TouchableOpacity
-              key={index}
-              style={[
-                styles.optionButton,
-                selectedAnswer === index && styles.selectedOption,
-                isAnswered &&
-                index ===
-                  currentProblem.options.indexOf(
-                    currentProblem.correctAnswer.toString()
-                  )
-                  ? styles.correctOption
-                  : {},
-                isAnswered && selectedAnswer === index && !isCorrect
-                  ? styles.incorrectOption
-                  : {},
-              ]}
-              onPress={() => handleAnswerSelect(index)}
-              disabled={isAnswered}
-              activeOpacity={0.8}
-            >
-              <Text
-                style={[
-                  styles.optionText,
-                  selectedAnswer === index && styles.selectedOptionText,
-                ]}
-              >
-                {option}
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        bounces={true}
+        keyboardShouldPersistTaps="handled"
+      >
+        <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
+          {/* Contexto de la escena */}
+          <View
+            style={[styles.sceneHeader, { borderColor: sceneContext.color }]}
+          >
+            <SceneAssets sceneType={currentScene} size="small" />
+            <View style={styles.sceneInfo}>
+              <Text style={[styles.sceneTitle, { color: sceneContext.color }]}>
+                {sceneContext.title}
               </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+              <Text style={styles.challengeText}>
+                Desafío Matemático • {difficulty.toUpperCase()}
+              </Text>
+            </View>
+          </View>
 
-        {/* Mascota con reacción */}
-        <View style={styles.mascotContainer}>
-          <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
-            <MinoMascot mood={getMascotMood()} size={120} />
+          {/* Pregunta */}
+          <Animated.View
+            style={[
+              styles.questionContainer,
+              { transform: [{ translateX: shakeAnim }] },
+            ]}
+          >
+            <Text style={styles.questionText}>{currentProblem.question}</Text>
+
+            {showHint && currentProblem.hint && (
+              <View style={styles.hintContainer}>
+                <Text style={styles.hintText}>{currentProblem.hint}</Text>
+              </View>
+            )}
           </Animated.View>
 
-          {isAnswered && (
-            <View style={styles.feedbackContainer}>
-              <Text
+          {/* Opciones de respuesta */}
+          <View style={styles.optionsContainer}>
+            {currentProblem.options.map((option, index) => (
+              <TouchableOpacity
+                key={index}
                 style={[
-                  styles.feedbackText,
-                  {
-                    color: isCorrect ? colors.success.main : colors.error.main,
-                  },
+                  styles.optionButton,
+                  selectedAnswer === index && styles.selectedOption,
+                  isAnswered &&
+                  index ===
+                    currentProblem.options.indexOf(
+                      currentProblem.correctAnswer.toString()
+                    )
+                    ? styles.correctOption
+                    : {},
+                  isAnswered && selectedAnswer === index && !isCorrect
+                    ? styles.incorrectOption
+                    : {},
                 ]}
+                onPress={() => handleAnswerSelect(index)}
+                disabled={isAnswered}
+                activeOpacity={0.8}
               >
-                {isCorrect
-                  ? adaptiveDifficulty.getEncouragementMessage()
-                  : "¡Inténtalo de nuevo! 💪"}
-              </Text>
-
-              {currentProblem.explanation && (
-                <Text style={styles.explanationText}>
-                  {currentProblem.explanation}
+                <Text
+                  style={[
+                    styles.optionText,
+                    selectedAnswer === index && styles.selectedOptionText,
+                  ]}
+                >
+                  {option}
                 </Text>
-              )}
+              </TouchableOpacity>
+            ))}
+          </View>
 
-              {/* Información del sistema adaptativo */}
-              <View style={styles.adaptiveInfo}>
-                <Text style={styles.adaptiveText}>
-                  Nivel: {adaptiveDifficulty.getDifficultyDescription()}
+          {/* Mascota con reacción */}
+          <View style={styles.mascotContainer}>
+            <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+              <MinoMascot mood={getMascotMood()} size={120} />
+            </Animated.View>
+
+            {isAnswered && (
+              <View style={styles.feedbackContainer}>
+                <Text
+                  style={[
+                    styles.feedbackText,
+                    {
+                      color: isCorrect
+                        ? colors.success.main
+                        : colors.error.main,
+                    },
+                  ]}
+                >
+                  {isCorrect
+                    ? adaptiveDifficulty.getEncouragementMessage()
+                    : "¡Inténtalo de nuevo! 💪"}
                 </Text>
-                {streak > 0 && (
-                  <Text style={styles.streakText}>
-                    🔥 Racha: {streak} {streak > 1 ? "respuestas" : "respuesta"}{" "}
-                    seguidas
+
+                {currentProblem.explanation && (
+                  <Text style={styles.explanationText}>
+                    {currentProblem.explanation}
                   </Text>
                 )}
-              </View>
-            </View>
-          )}
-        </View>
 
-        {/* Botones de acción */}
-        <View style={styles.actionsContainer}>
-          {!isAnswered &&
-            !showHint &&
-            currentProblem.hint &&
-            adaptiveDifficulty.getDifficultyModifiers().hintAvailability && (
-              <TouchableOpacity style={styles.hintButton} onPress={handleHint}>
-                <Text style={styles.hintButtonText}>💡 Pista (-5 XP)</Text>
-              </TouchableOpacity>
-            )}
-
-          {isAnswered && (
-            <View style={styles.navigationSection}>
-              {/* Indicador de navegación automática */}
-              {autoNavTimer && !isNavigating && (
-                <View style={styles.autoNavIndicator}>
-                  <Text style={styles.autoNavText}>
-                    Navegando automáticamente en 3s...
+                {/* Información del sistema adaptativo */}
+                <View style={styles.adaptiveInfo}>
+                  <Text style={styles.adaptiveText}>
+                    Nivel: {adaptiveDifficulty.getDifficultyDescription()}
                   </Text>
-                  <View style={styles.progressIndicator}>
-                    <Animated.View
-                      style={[
-                        styles.progressBar,
-                        {
-                          width: progressAnim.interpolate({
-                            inputRange: [0, 1],
-                            outputRange: ["0%", "100%"],
-                          }),
-                        },
-                      ]}
-                    />
-                  </View>
+                  {streak > 0 && (
+                    <Text style={styles.streakText}>
+                      🔥 Racha: {streak}{" "}
+                      {streak > 1 ? "respuestas" : "respuesta"} seguidas
+                    </Text>
+                  )}
                 </View>
+              </View>
+            )}
+          </View>
+
+          {/* Botones de acción */}
+          <View style={styles.actionsContainer}>
+            {!isAnswered &&
+              !showHint &&
+              currentProblem.hint &&
+              adaptiveDifficulty.getDifficultyModifiers().hintAvailability && (
+                <TouchableOpacity
+                  style={styles.hintButton}
+                  onPress={handleHint}
+                >
+                  <Text style={styles.hintButtonText}>💡 Pista (-5 XP)</Text>
+                </TouchableOpacity>
               )}
 
-              <TouchableOpacity
-                style={[
-                  styles.continueButton,
-                  { backgroundColor: sceneContext.color },
-                  isNavigating && styles.disabledButton,
-                ]}
-                onPress={handleContinue}
-                disabled={isNavigating}
-              >
-                <Text style={styles.continueButtonText}>
-                  {isNavigating
-                    ? "Navegando..."
-                    : autoNavTimer
-                    ? "Continuar Ahora"
-                    : "Continuar"}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          )}
-        </View>
-      </Animated.View>
+            {isAnswered && (
+              <View style={styles.navigationSection}>
+                {/* Indicador de navegación automática */}
+                {autoNavTimer && !isNavigating && (
+                  <View style={styles.autoNavIndicator}>
+                    <Text style={styles.autoNavText}>
+                      Navegando automáticamente en 3s...
+                    </Text>
+                    <View style={styles.progressIndicator}>
+                      <Animated.View
+                        style={[
+                          styles.progressBar,
+                          {
+                            width: progressAnim.interpolate({
+                              inputRange: [0, 1],
+                              outputRange: ["0%", "100%"],
+                            }),
+                          },
+                        ]}
+                      />
+                    </View>
+                  </View>
+                )}
+
+                <TouchableOpacity
+                  style={[
+                    styles.continueButton,
+                    { backgroundColor: sceneContext.color },
+                    isNavigating && styles.disabledButton,
+                  ]}
+                  onPress={handleContinue}
+                  disabled={isNavigating}
+                >
+                  <Text style={styles.continueButtonText}>
+                    {isNavigating
+                      ? "Navegando..."
+                      : autoNavTimer
+                      ? "Continuar Ahora"
+                      : "Continuar"}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+        </Animated.View>
+      </ScrollView>
 
       {/* Efectos visuales */}
       <ProblemEffects
@@ -1624,6 +1640,13 @@ const styles = StyleSheet.create({
   loadingText: {
     ...typography.h2,
     color: colors.text.secondary,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    paddingBottom: spacing.xl,
   },
   container: {
     flex: 1,

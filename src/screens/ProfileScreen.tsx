@@ -8,6 +8,7 @@ import {
   StatusBar,
   Modal,
   Animated,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
@@ -279,7 +280,17 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
               <Text style={styles.primaryButtonText}>🏠 Volver al Inicio</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.secondaryButton}>
+            <TouchableOpacity
+              style={styles.secondaryButton}
+              onPress={() => {
+                // Por ahora mostrar un alert, después se puede hacer una pantalla de settings
+                Alert.alert(
+                  "⚙️ Configuración",
+                  "Próximamente: Configuración de preferencias, notificaciones y más.",
+                  [{ text: "Entendido", style: "default" }]
+                );
+              }}
+            >
               <Text style={styles.secondaryButtonText}>⚙️ Configuración</Text>
             </TouchableOpacity>
           </View>

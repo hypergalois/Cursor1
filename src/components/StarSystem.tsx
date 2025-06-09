@@ -184,13 +184,13 @@ export const StarSystem: React.FC<StarSystemProps> = ({
           toValue: finalX,
           duration: config.animationDuration,
           easing: Easing.out(Easing.quad),
-          useNativeDriver: true,
+          useNativeDriver: false,
         }),
         Animated.timing(particle.y, {
           toValue: finalY,
           duration: config.animationDuration,
           easing: Easing.out(Easing.quad),
-          useNativeDriver: true,
+          useNativeDriver: false,
         }),
         Animated.timing(particle.rotation, {
           toValue: 360 * (1 + Math.random()),

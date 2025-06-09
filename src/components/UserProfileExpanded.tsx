@@ -89,14 +89,31 @@ export const UserProfileExpanded: React.FC<UserProfileExpandedProps> = ({
     try {
       setIsLoading(true);
 
-      // Cargar datos en paralelo
+      // Cargar datos en paralelo con fallbacks
       const [insightsData, metricsData, trendsData] = await Promise.all([
-        analytics.generateInsights(),
-        analytics.getPersonalizedMetrics(),
-        analytics.getPerformanceTrends(),
+        analytics.generateInsights().catch(() => []),
+        analytics.getPersonalizedMetrics().catch(() => null),
+        analytics.getPerformanceTrends().catch(() => []),
       ]);
 
-      setInsights(insightsData);
+      // Datos de respaldo si no hay insights
+      const fallbackInsights = [
+        {
+          type: "recommendation" as const,
+          title: "¡Sigue practicando!",
+          description:
+            "Continúa resolviendo problemas para generar insights personalizados basados en tu rendimiento.",
+          actionable: true,
+          suggestedActions: [
+            "Resuelve al menos 5 problemas",
+            "Prueba diferentes categorías",
+          ],
+          confidence: 0.8,
+          priority: "medium" as const,
+        },
+      ];
+
+      setInsights(insightsData.length > 0 ? insightsData : fallbackInsights);
       setPersonalizedMetrics(metricsData);
       setTrends(trendsData);
 
@@ -105,6 +122,22 @@ export const UserProfileExpanded: React.FC<UserProfileExpandedProps> = ({
       setProfileStats(stats);
     } catch (error) {
       console.error("Error initializing profile:", error);
+      // Establecer datos de respaldo en caso de error total
+      setInsights([
+        {
+          type: "recommendation" as const,
+          title: "Comienza tu aventura",
+          description:
+            "Resuelve algunos problemas para obtener insights personalizados sobre tu aprendizaje.",
+          actionable: true,
+          suggestedActions: [
+            "Inicia con problemas básicos",
+            "Explora diferentes temas",
+          ],
+          confidence: 1.0,
+          priority: "high" as const,
+        },
+      ]);
     } finally {
       setIsLoading(false);
     }

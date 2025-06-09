@@ -801,9 +801,9 @@ export const ProblemEffects: React.FC<ProblemEffectsProps> = ({
           style={[
             styles.environmentParticle,
             {
-              left: particle.x,
-              top: particle.y,
               transform: [
+                { translateX: particle.x },
+                { translateY: particle.y },
                 { scale: particle.scale },
                 {
                   rotate: particle.rotation.interpolate({

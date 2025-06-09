@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -20,6 +20,7 @@ import { BottomNavBar } from "../components/BottomNavBar";
 import DungeonMap from "../components/DungeonMap";
 import SceneAssets from "../components/SceneAssets";
 import MinoMascot from "../components/MinoMascot";
+import UserProgressService from "../services/UserProgress";
 
 interface DungeonScreenProps {
   navigation: any;
@@ -36,6 +37,42 @@ export const DungeonScreen: React.FC<DungeonScreenProps> = ({ navigation }) => {
     totalStars: 42,
     totalProblems: 18,
   });
+  const [userProfile, setUserProfile] = useState({
+    ageGroup: "adults" as "kids" | "teens" | "adults" | "seniors",
+    totalXP: 0,
+    streakDays: 0,
+  });
+  const [userStats, setUserStats] = useState({
+    xp: 150,
+    lives: 3,
+    level: 3,
+  });
+
+  const userProgressService = UserProgressService.getInstance();
+
+  useEffect(() => {
+    const loadUserData = async () => {
+      try {
+        const stats = await userProgressService.getUserStats();
+        if (stats) {
+          setUserProfile({
+            ageGroup: stats.ageGroup,
+            totalXP: stats.totalXp,
+            streakDays: stats.streakInfo?.current || 0,
+          });
+          setUserStats({
+            xp: stats.totalXp,
+            lives: stats.lives,
+            level: stats.currentLevel,
+          });
+        }
+      } catch (error) {
+        console.error("Error loading user data:", error);
+      }
+    };
+
+    loadUserData();
+  }, []);
 
   const handleNavigate = (screen: string) => {
     switch (screen) {
@@ -124,7 +161,7 @@ export const DungeonScreen: React.FC<DungeonScreenProps> = ({ navigation }) => {
               </Text>
               <View style={styles.levelIndicator}>
                 <Text style={styles.levelText}>
-                  Nivel actual: {userProgress.currentLevel}
+                  Nivel actual: {userStats.level}
                 </Text>
               </View>
             </View>
@@ -194,6 +231,7 @@ export const DungeonScreen: React.FC<DungeonScreenProps> = ({ navigation }) => {
     <DungeonMap
       currentLevel={userProgress.currentLevel}
       completedLevels={userProgress.completedLevels}
+      userProfile={userProfile}
       onLevelSelect={handleLevelSelect}
     />
   );
@@ -205,7 +243,11 @@ export const DungeonScreen: React.FC<DungeonScreenProps> = ({ navigation }) => {
         backgroundColor={colors.background.default}
       />
 
-      <GameHeader xp={150} lives={3} level={userProgress.currentLevel} />
+      <GameHeader
+        xp={userStats.xp}
+        lives={userStats.lives}
+        level={userStats.level}
+      />
 
       {/* Tabs para cambiar vista */}
       <View style={styles.tabsContainer}>

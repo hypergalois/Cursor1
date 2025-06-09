@@ -156,13 +156,17 @@ class UserProgressService {
         `session_${sessionId}`,
         JSON.stringify(this.currentSession)
       );
-      
+
       await this.updateDailyStreak();
     } catch (error) {
       console.error("Error saving session:", error);
     }
 
     return sessionId;
+  }
+
+  getCurrentSession(): UserSession | null {
+    return this.currentSession;
   }
 
   async updateDailyStreak(): Promise<StreakInfo> {
@@ -172,9 +176,22 @@ class UserProgressService {
         return this.initializeStreakInfo();
       }
 
+      // Verificar y inicializar streakInfo si no existe
+      if (!stats.streakInfo) {
+        stats.streakInfo = this.initializeStreakInfo();
+        await AsyncStorage.setItem("user_stats", JSON.stringify(stats));
+      }
+
       const today = new Date();
       const todayString = today.toDateString();
-      const lastActiveString = stats.streakInfo.lastActiveDate?.toDateString();
+
+      // Convertir lastActiveDate de string a Date si es necesario
+      let lastActiveDate = stats.streakInfo.lastActiveDate;
+      if (lastActiveDate && typeof lastActiveDate === "string") {
+        lastActiveDate = new Date(lastActiveDate);
+      }
+
+      const lastActiveString = lastActiveDate?.toDateString();
 
       let updatedStreakInfo = { ...stats.streakInfo };
 
@@ -197,7 +214,7 @@ class UserProgressService {
         }
 
         updatedStreakInfo.lastActiveDate = today;
-        
+
         updatedStreakInfo.doubleXPActive = updatedStreakInfo.current % 7 === 0;
 
         stats.streakInfo = updatedStreakInfo;
@@ -238,19 +255,30 @@ class UserProgressService {
     }
   }
 
-  async updateMissionProgress(missionType: string, amount: number = 1): Promise<void> {
+  async updateMissionProgress(
+    missionType: string,
+    amount: number = 1
+  ): Promise<void> {
     try {
       const stats = await this.getUserStats();
       if (!stats) return;
 
-      const today = new Date().toDateString();
-      let todayMissions = stats.dailyMissions.filter(m => m.date === today);
+      // Inicializar dailyMissions si no existe
+      if (!stats.dailyMissions) {
+        stats.dailyMissions = [];
+      }
 
-      todayMissions.forEach(mission => {
+      const today = new Date().toDateString();
+      let todayMissions = stats.dailyMissions.filter((m) => m.date === today);
+
+      todayMissions.forEach((mission) => {
         if (mission.type === missionType && !mission.completed) {
-          mission.progress = Math.min(mission.progress + amount, mission.target);
+          mission.progress = Math.min(
+            mission.progress + amount,
+            mission.target
+          );
           mission.completed = mission.progress >= mission.target;
-          
+
           if (mission.completed) {
             stats.missionsCompleted += 1;
           }
@@ -271,7 +299,7 @@ class UserProgressService {
   }
 
   async updateSceneProgress(
-    sceneId: string, 
+    sceneId: string,
     result: ProblemResult
   ): Promise<void> {
     try {
@@ -295,23 +323,28 @@ class UserProgressService {
 
       const sceneProgress = stats.sceneProgress[sceneId];
       const oldProblems = sceneProgress.problemsSolved;
-      
+
       sceneProgress.problemsSolved += 1;
       if (result.correct) {
         const oldCorrect = sceneProgress.accuracy * oldProblems;
-        sceneProgress.accuracy = (oldCorrect + 1) / sceneProgress.problemsSolved;
+        sceneProgress.accuracy =
+          (oldCorrect + 1) / sceneProgress.problemsSolved;
       } else {
         const oldCorrect = sceneProgress.accuracy * oldProblems;
         sceneProgress.accuracy = oldCorrect / sceneProgress.problemsSolved;
       }
 
-      const totalTime = sceneProgress.averageTime * oldProblems + result.timeTaken;
+      const totalTime =
+        sceneProgress.averageTime * oldProblems + result.timeTaken;
       sceneProgress.averageTime = totalTime / sceneProgress.problemsSolved;
 
       if (result.starRating === 3) {
         sceneProgress.perfectSolutions += 1;
       }
-      sceneProgress.bestStreak = Math.max(sceneProgress.bestStreak, result.streakAfter);
+      sceneProgress.bestStreak = Math.max(
+        sceneProgress.bestStreak,
+        result.streakAfter
+      );
       sceneProgress.totalXP += result.xpEarned;
       sceneProgress.gemsEarned += result.gemsEarned || 0;
       sceneProgress.starsEarned += result.starRating || 0;
@@ -433,7 +466,7 @@ class UserProgressService {
       stats.totalGems += result.gemsEarned || 0;
       stats.totalStars += result.starRating || 0;
       if (result.starRating === 3) stats.perfectProblems++;
-      
+
       stats.currentLevel = result.currentLevel;
       stats.maxStreak = Math.max(stats.maxStreak, result.streakAfter);
       stats.streak = result.streakAfter;
@@ -446,7 +479,7 @@ class UserProgressService {
       await this.updateCategoryStats(stats, result);
 
       if (result.achievementsUnlocked) {
-        result.achievementsUnlocked.forEach(achievement => {
+        result.achievementsUnlocked.forEach((achievement) => {
           if (!stats.achievements.includes(achievement)) {
             stats.achievements.push(achievement);
           }
@@ -551,14 +584,25 @@ class UserProgressService {
       const stats = await this.getUserStats();
       if (!stats) return;
 
+      // Inicializar weeklyStats si no existe
+      if (!stats.weeklyStats) {
+        stats.weeklyStats = [];
+      }
+
       const now = new Date();
       const weekYear = now.getFullYear();
       const weekNumber = this.getWeekNumber(now);
       const weekKey = `${weekYear}-W${weekNumber}`;
 
-      let weekStats = stats.weeklyStats.find(w => w.week === weekKey);
+      let weekStats = stats.weeklyStats.find((w) => w.week === weekKey);
       if (!weekStats) {
-        weekStats = { week: weekKey, problems: 0, xp: 0, missions: 0, achievements: 0 };
+        weekStats = {
+          week: weekKey,
+          problems: 0,
+          xp: 0,
+          missions: 0,
+          achievements: 0,
+        };
         stats.weeklyStats.push(weekStats);
       }
 
@@ -581,17 +625,24 @@ class UserProgressService {
       const stats = await this.getUserStats();
       if (!stats) return;
 
-      const now = new Date();
-      const monthKey = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}`;
+      // Inicializar monthlyStats si no existe
+      if (!stats.monthlyStats) {
+        stats.monthlyStats = [];
+      }
 
-      let monthStats = stats.monthlyStats.find(m => m.month === monthKey);
+      const now = new Date();
+      const monthKey = `${now.getFullYear()}-${(now.getMonth() + 1)
+        .toString()
+        .padStart(2, "0")}`;
+
+      let monthStats = stats.monthlyStats.find((m) => m.month === monthKey);
       if (!monthStats) {
-        monthStats = { 
-          month: monthKey, 
-          totalXP: 0, 
-          streakDays: 0, 
-          perfectDays: 0, 
-          achievements: 0 
+        monthStats = {
+          month: monthKey,
+          totalXP: 0,
+          streakDays: 0,
+          perfectDays: 0,
+          achievements: 0,
         };
         stats.monthlyStats.push(monthStats);
       }
@@ -614,19 +665,45 @@ class UserProgressService {
   }
 
   private getWeekNumber(date: Date): number {
-    const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+    const d = new Date(
+      Date.UTC(date.getFullYear(), date.getMonth(), date.getDate())
+    );
     const dayNum = d.getUTCDay() || 7;
     d.setUTCDate(d.getUTCDate() + 4 - dayNum);
     const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-    return Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+    return Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
   }
 
   async getTodayMissions(): Promise<DailyMissionProgress[]> {
+    try {
+      const stats = await this.getUserStats();
+      if (!stats) return [];
+
+      const today = new Date().toDateString();
+      return stats.dailyMissions.filter((mission) => mission.date === today);
+    } catch (error) {
+      console.error("Error getting today missions:", error);
+      return [];
+    }
+  }
+
   // Obtener estadísticas del usuario
   async getUserStats(): Promise<UserStats | null> {
     try {
       const statsString = await AsyncStorage.getItem("user_stats");
-      return statsString ? JSON.parse(statsString) : null;
+      if (statsString) {
+        const stats = JSON.parse(statsString);
+        // Verificar y corregir streakInfo si no existe o está mal formado
+        if (
+          !stats.streakInfo ||
+          typeof stats.streakInfo.current === "undefined"
+        ) {
+          stats.streakInfo = this.initializeStreakInfo();
+          await AsyncStorage.setItem("user_stats", JSON.stringify(stats));
+        }
+        return stats;
+      }
+      return null;
     } catch (error) {
       console.error("Error getting user stats:", error);
       return null;

@@ -23,6 +23,13 @@ import {
 import MinoMascot from "../components/MinoMascot";
 import SceneAssets from "../components/SceneAssets";
 import AdaptiveDifficulty from "../utils/AdaptiveDifficulty";
+import StarSystem, {
+  calculateStars,
+  StarBreakdown,
+} from "../components/StarSystem";
+import LevelProgression from "../components/LevelProgression";
+import AchievementSystem from "../components/AchievementSystem";
+import ProgressTrackingService from "../services/ProgressTrackingService";
 
 interface ResultScreenProps {
   navigation: any;
@@ -57,8 +64,30 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
     problemsInSession = 1,
   } = route?.params || {};
 
+  // 🐛 DEBUG: Log de parámetros recibidos
+  console.log("🔍 ResultScreen initialized with params:", {
+    isCorrect,
+    xpGained,
+    timeSpent,
+    streak,
+    currentScene,
+    nextScene,
+    currentLevel,
+    sessionType,
+    problemsInSession,
+    hasNavigation: !!navigation,
+    routeParams: route?.params,
+  });
+
   const [adaptiveDifficulty] = useState(() => AdaptiveDifficulty.getInstance());
   const [sessionStats, setSessionStats] = useState<SessionStats | null>(null);
+  const [starCalculation, setStarCalculation] = useState<any>(null);
+  const [showStarBreakdown, setShowStarBreakdown] = useState(false);
+  const [progressService] = useState(() =>
+    ProgressTrackingService.getInstance()
+  );
+  const [currentProgress, setCurrentProgress] = useState<any>(null);
+  const [levelUpData, setLevelUpData] = useState<any>(null);
 
   // ✅ DESHABILITAR NAVEGACIÓN HACIA ATRÁS
   useFocusEffect(
@@ -84,31 +113,91 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
   const progressAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    // Obtener estadísticas del sistema adaptativo
-    const stats = adaptiveDifficulty.getPerformanceStats();
+    const initializeProgress = async () => {
+      // Obtener estadísticas del sistema adaptativo
+      const stats = adaptiveDifficulty.getPerformanceStats();
 
-    // Generar análisis de la sesión
-    const sessionAnalysis: SessionStats = {
-      totalProblems: stats.totalAnswers,
-      correctAnswers: stats.correctAnswers,
-      totalXP: stats.correctAnswers * 10, // Estimación simple
-      averageTime: stats.averageTime,
-      maxStreak: Math.max(
-        stats.streak,
-        ...stats.lastFiveResults.reduce(
-          (acc, curr, index) => {
-            if (curr) acc[acc.length - 1] = (acc[acc.length - 1] || 0) + 1;
-            else acc.push(0);
-            return acc;
-          },
-          [0]
-        )
-      ),
-      improvementAreas: generateImprovementAreas(stats),
-      achievements: generateAchievements(stats),
+      // Calcular estrellas ganadas
+      const difficulty = "medium"; // Por ahora usamos medium como default
+      const hintsUsed = 0; // TODO: Integrar sistema de pistas
+      const starCalc = calculateStars(
+        isCorrect,
+        timeSpent,
+        difficulty,
+        streak,
+        hintsUsed
+      );
+      setStarCalculation(starCalc);
+
+      // Obtener progreso actual
+      const progress = await progressService.getProgress();
+
+      // Si hay progreso, actualizarlo con los nuevos datos
+      if (progress && isCorrect) {
+        const newTotalXP = progress.totalXP + xpGained;
+        const newTotalStars = progress.totalStars + starCalc.stars;
+        const newProblemsCount = progress.problemsSolved + 1;
+
+        // Calcular nuevo nivel basado en XP
+        const newLevel = Math.floor(newTotalXP / 100) + 1; // Fórmula simple
+        const leveledUp = newLevel > progress.currentLevel;
+
+        if (leveledUp) {
+          setLevelUpData({ oldLevel: progress.currentLevel, newLevel });
+        }
+
+        await progressService.updateProgress({
+          totalXP: newTotalXP,
+          totalStars: newTotalStars,
+          currentLevel: newLevel,
+          problemsSolved: newProblemsCount,
+          accuracyRate: newProblemsCount > 0 ? 1.0 : 0, // Si llegamos aquí es porque isCorrect=true
+          currentStreak: streak,
+        });
+
+        // Obtener progreso actualizado
+        const updatedProgress = await progressService.getProgress();
+        setCurrentProgress(updatedProgress);
+      } else if (!progress) {
+        // Crear progreso inicial
+        await progressService.updateProgress({
+          totalXP: xpGained,
+          totalStars: starCalc.stars,
+          currentLevel: 1,
+          problemsSolved: isCorrect ? 1 : 0,
+          accuracyRate: isCorrect ? 1 : 0,
+          currentStreak: isCorrect ? streak : 0,
+        });
+
+        const newProgress = await progressService.getProgress();
+        setCurrentProgress(newProgress);
+      }
+
+      // Generar análisis de la sesión
+      const sessionAnalysis: SessionStats = {
+        totalProblems: stats.totalAnswers,
+        correctAnswers: stats.correctAnswers,
+        totalXP: stats.correctAnswers * 10,
+        averageTime: stats.averageTime,
+        maxStreak: Math.max(
+          stats.streak,
+          ...stats.lastFiveResults.reduce(
+            (acc, curr, index) => {
+              if (curr) acc[acc.length - 1] = (acc[acc.length - 1] || 0) + 1;
+              else acc.push(0);
+              return acc;
+            },
+            [0]
+          )
+        ),
+        improvementAreas: generateImprovementAreas(stats),
+        achievements: generateAchievements(stats),
+      };
+
+      setSessionStats(sessionAnalysis);
     };
 
-    setSessionStats(sessionAnalysis);
+    initializeProgress();
 
     // Iniciar animaciones
     Animated.parallel([
@@ -130,7 +219,7 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
         useNativeDriver: true,
       }),
       Animated.timing(progressAnim, {
-        toValue: stats.successRate,
+        toValue: isCorrect ? 1 : 0.5, // Usar valor basado en respuesta actual
         duration: 1500,
         delay: 600,
         useNativeDriver: false,
@@ -193,55 +282,66 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
       problemsInSession,
     });
 
-    // ✅ LÓGICA DE FINALIZACIÓN MEJORADA
-    if (sessionType === "session_complete" || sessionType === "game_over") {
-      // Sesión completada o game over - siempre volver a mazmorra
-      navigation.navigate("Dungeon");
-      return;
-    }
-
-    // Para problema individual
-    if (isCorrect && nextScene) {
-      // ✅ CONDICIÓN DE FINALIZACIÓN: Después de 5 problemas correctos, terminar sesión
-      if (problemsInSession >= 5) {
-        console.log("🎉 Sesión completada - 5 problemas resueltos");
-        navigation.navigate("Result", {
-          isCorrect: true,
-          xpGained: xpGained * problemsInSession,
-          timeSpent,
-          streak,
-          currentScene,
-          currentLevel,
-          sessionType: "session_complete",
-          problemsInSession,
-        });
+    try {
+      // ✅ LÓGICA DE FINALIZACIÓN MEJORADA
+      if (sessionType === "session_complete" || sessionType === "game_over") {
+        // Sesión completada o game over - siempre volver a mazmorra
+        console.log("🏠 Navigating to Dungeon (session complete/game over)");
+        navigation.navigate("Dungeon");
         return;
       }
 
-      // ✅ CONDICIÓN DE FINALIZACIÓN: Boss derrotado, terminar aventura
-      if (currentScene === "boss_room" && isCorrect) {
-        console.log("👑 ¡Jefe final derrotado! Aventura completada");
-        navigation.navigate("Result", {
-          isCorrect: true,
-          xpGained: xpGained * 2, // Bonus por jefe final
-          timeSpent,
-          streak,
-          currentScene,
-          currentLevel,
-          sessionType: "session_complete",
-          problemsInSession,
-        });
-        return;
-      }
+      // Para problema individual
+      if (isCorrect && nextScene) {
+        // ✅ CONDICIÓN DE FINALIZACIÓN: Después de 5 problemas correctos, terminar sesión
+        if (problemsInSession >= 5) {
+          console.log("🎉 Sesión completada - 5 problemas resueltos");
+          navigation.navigate("Result", {
+            isCorrect: true,
+            xpGained: xpGained * problemsInSession,
+            timeSpent,
+            streak,
+            currentScene,
+            currentLevel,
+            sessionType: "session_complete",
+            problemsInSession,
+          });
+          return;
+        }
 
-      // Continuar con siguiente problema
-      navigation.replace("Choice", {
-        currentLevel: currentLevel + 1,
-        currentScene: nextScene,
-        problemsInSession: problemsInSession + 1,
-      });
-    } else {
-      // Respuesta incorrecta o sin siguiente escena - volver a mazmorra
+        // ✅ CONDICIÓN DE FINALIZACIÓN: Boss derrotado, terminar aventura
+        if (currentScene === "boss_room" && isCorrect) {
+          console.log("👑 ¡Jefe final derrotado! Aventura completada");
+          navigation.navigate("Result", {
+            isCorrect: true,
+            xpGained: xpGained * 2, // Bonus por jefe final
+            timeSpent,
+            streak,
+            currentScene,
+            currentLevel,
+            sessionType: "session_complete",
+            problemsInSession,
+          });
+          return;
+        }
+
+        // Continuar con siguiente problema
+        console.log("➡️ Continuing to next Choice screen");
+        navigation.replace("Choice", {
+          currentLevel: currentLevel + 1,
+          currentScene: nextScene,
+          problemsInSession: problemsInSession + 1,
+        });
+      } else {
+        // Respuesta incorrecta o sin siguiente escena - volver a mazmorra
+        console.log(
+          "🏠 Navigating to Dungeon (incorrect answer or no next scene)"
+        );
+        navigation.navigate("Dungeon");
+      }
+    } catch (error) {
+      console.error("❌ Error in handleContinue:", error);
+      // Fallback: siempre navegar a Dungeon si hay error
       navigation.navigate("Dungeon");
     }
   };
@@ -340,7 +440,11 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
       />
 
       <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
-        <View style={styles.simpleContainer}>
+        <ScrollView
+          style={styles.simpleScrollView}
+          contentContainerStyle={styles.simpleContainer}
+          showsVerticalScrollIndicator={false}
+        >
           {/* Header simple */}
           <Animated.View
             style={[
@@ -360,11 +464,58 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
             <Text style={styles.simpleSubtitle}>
               +{xpGained} XP ganados • Tiempo: {Math.round(timeSpent)}s
             </Text>
+
+            {/* Sistema de estrellas */}
+            {starCalculation && (
+              <View style={styles.starSection}>
+                <StarSystem
+                  starsEarned={starCalculation.stars}
+                  size="large"
+                  animated={true}
+                />
+                <TouchableOpacity
+                  style={styles.starDetailsButton}
+                  onPress={() => {
+                    console.log("🌟 Star details button pressed");
+                    setShowStarBreakdown(!showStarBreakdown);
+                  }}
+                >
+                  <Text style={styles.starDetailsText}>Ver detalles ⭐</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {/* Progreso de nivel - Version compacta */}
+            {currentProgress && (
+              <View style={styles.levelSection}>
+                <View style={styles.levelCompactContainer}>
+                  <Text style={styles.levelCompactTitle}>
+                    🎯 Nivel {currentProgress.currentLevel}
+                  </Text>
+                  <Text style={styles.levelCompactXP}>
+                    {currentProgress.totalXP} XP total
+                  </Text>
+                  <View style={styles.levelCompactBar}>
+                    <View
+                      style={[
+                        styles.levelCompactFill,
+                        {
+                          width: `${Math.min(
+                            Math.max(currentProgress.totalXP % 100, 0),
+                            100
+                          )}%`,
+                        },
+                      ]}
+                    />
+                  </View>
+                </View>
+              </View>
+            )}
           </Animated.View>
 
           {/* Mascota simple */}
           <View style={styles.simpleMascotSection}>
-            <MinoMascot mood={isCorrect ? "happy" : "sad"} size={150} />
+            <MinoMascot mood={isCorrect ? "happy" : "sad"} size={120} />
             <View style={styles.simpleSpeechBubble}>
               <Text style={styles.simpleSpeechText}>
                 {isCorrect
@@ -373,14 +524,34 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
               </Text>
             </View>
           </View>
+        </ScrollView>
 
-          {/* Botón simple */}
+        {/* Botón fijo en la parte inferior */}
+        <View style={styles.simpleBottomContainer}>
+          {/* 🚨 BOTÓN DE EMERGENCIA TEMPORAL */}
+          <TouchableOpacity
+            style={styles.emergencyButton}
+            onPress={() => {
+              console.log(
+                "🚨 EMERGENCY BUTTON PRESSED - Force navigate to Dungeon"
+              );
+              navigation.navigate("Dungeon");
+            }}
+          >
+            <Text style={styles.emergencyButtonText}>
+              🚨 EMERGENCIA: Ir a Mazmorra
+            </Text>
+          </TouchableOpacity>
+
           <TouchableOpacity
             style={[
               styles.simpleContinueButton,
               { backgroundColor: rating.color },
             ]}
-            onPress={handleContinue}
+            onPress={() => {
+              console.log("🚀 Continue button pressed - Simple version");
+              handleContinue();
+            }}
           >
             <Text style={styles.simpleContinueText}>
               {isCorrect && nextScene && problemsInSession < 5
@@ -389,6 +560,18 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
             </Text>
           </TouchableOpacity>
         </View>
+
+        {/* Desglose de estrellas */}
+        {starCalculation && (
+          <StarBreakdown
+            calculation={starCalculation}
+            visible={showStarBreakdown}
+            onClose={() => {
+              console.log("🌟 Star breakdown closed");
+              setShowStarBreakdown(false);
+            }}
+          />
+        )}
       </Animated.View>
     </SafeAreaView>
   );
@@ -789,29 +972,32 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   // ✅ ESTILOS PARA VERSIÓN SIMPLE
-  simpleContainer: {
+  simpleScrollView: {
     flex: 1,
-    justifyContent: "center",
+  },
+  simpleContainer: {
+    flexGrow: 1,
     alignItems: "center",
-    padding: spacing.xl,
+    padding: spacing.lg,
+    paddingBottom: spacing.sm, // Menos padding abajo porque tenemos botón fijo
   },
   simpleHeader: {
     alignItems: "center",
-    marginBottom: spacing.xl,
-    padding: spacing.xl,
+    marginBottom: spacing.lg,
+    padding: spacing.lg,
     backgroundColor: colors.background.paper,
     borderRadius: borderRadius.lg,
     ...shadows.medium,
     width: "100%",
   },
   simpleEmoji: {
-    fontSize: 80,
-    marginVertical: spacing.lg,
+    fontSize: 60, // Reducido de 80 para ahorrar espacio
+    marginVertical: spacing.md,
   },
   simpleTitle: {
     ...typography.h1,
     fontWeight: "700",
-    marginBottom: spacing.md,
+    marginBottom: spacing.sm,
     textAlign: "center",
   },
   simpleSubtitle: {
@@ -822,33 +1008,109 @@ const styles = StyleSheet.create({
   },
   simpleMascotSection: {
     alignItems: "center",
-    marginBottom: spacing.xl,
+    marginBottom: spacing.md, // Reducido para ahorrar espacio
   },
   simpleSpeechBubble: {
     backgroundColor: colors.background.paper,
-    padding: spacing.lg,
+    padding: spacing.md,
     borderRadius: borderRadius.lg,
-    marginTop: spacing.lg,
+    marginTop: spacing.md,
     maxWidth: width * 0.8,
     ...shadows.small,
   },
   simpleSpeechText: {
-    ...typography.h3,
+    ...typography.body, // Cambiado de h3 a body para ahorrar espacio
     color: colors.text.primary,
     textAlign: "center",
-    lineHeight: 24,
+    lineHeight: 20,
     fontWeight: "500",
+  },
+  simpleBottomContainer: {
+    padding: spacing.lg,
+    paddingTop: spacing.sm,
+    backgroundColor: colors.background.default,
+    borderTopWidth: 1,
+    borderTopColor: colors.primary.light + "20",
   },
   simpleContinueButton: {
     paddingVertical: spacing.lg,
-    paddingHorizontal: spacing.xl * 2,
+    paddingHorizontal: spacing.xl,
     borderRadius: borderRadius.md,
     ...shadows.medium,
     minWidth: width * 0.8,
+    alignItems: "center",
   },
   simpleContinueText: {
-    ...typography.h2,
+    ...typography.h3,
     color: colors.background.paper,
+    textAlign: "center",
+    fontWeight: "600",
+  },
+  // ✅ ESTILOS PARA SISTEMAS DE GAMIFICACIÓN
+  starSection: {
+    alignItems: "center",
+    marginVertical: spacing.lg,
+    padding: spacing.md,
+    backgroundColor: colors.gold + "10",
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    borderColor: colors.gold + "30",
+  },
+  starDetailsButton: {
+    marginTop: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    backgroundColor: colors.gold + "20",
+    borderRadius: borderRadius.round,
+  },
+  starDetailsText: {
+    ...typography.caption,
+    color: colors.gold,
+    fontWeight: "600",
+  },
+  levelSection: {
+    marginVertical: spacing.md,
+    padding: spacing.md,
+    backgroundColor: colors.primary.light + "10",
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    borderColor: colors.primary.light + "30",
+  },
+  levelCompactContainer: {
+    alignItems: "center",
+    gap: spacing.sm,
+  },
+  levelCompactTitle: {
+    ...typography.h3,
+    color: colors.primary.main,
+    fontWeight: "600",
+  },
+  levelCompactXP: {
+    ...typography.caption,
+    color: colors.text.secondary,
+  },
+  levelCompactBar: {
+    width: "100%",
+    height: 8,
+    backgroundColor: colors.primary.light + "30",
+    borderRadius: borderRadius.round,
+    overflow: "hidden",
+  },
+  levelCompactFill: {
+    height: "100%",
+    backgroundColor: colors.primary.main,
+    borderRadius: borderRadius.round,
+  },
+  emergencyButton: {
+    backgroundColor: colors.error.main + "20",
+    padding: spacing.md,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    borderColor: colors.error.main,
+  },
+  emergencyButtonText: {
+    ...typography.body,
+    color: colors.error.main,
     textAlign: "center",
     fontWeight: "600",
   },

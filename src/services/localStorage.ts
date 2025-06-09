@@ -1,5 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { Problem } from "../data/mockProblems";
+import { Problem } from "../types/Problem";
 
 const STORAGE_KEYS = {
   USER_PROGRESS: "@minotauro:userProgress",

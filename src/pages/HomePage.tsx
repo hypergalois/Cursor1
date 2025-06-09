@@ -1,8 +1,9 @@
 import React, { useState } from "react";
-import { ProblemList } from "../components/ProblemList";
+import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { ProblemCard } from "../components/ProblemCard";
 import { Problem } from "../types/Problem";
-import { problemService } from "../services/problemService";
+import { mockProblems } from "../data/mockProblems";
+import { colors, spacing, typography } from "../styles/theme";
 
 export const HomePage: React.FC = () => {
   const [selectedProblem, setSelectedProblem] = useState<Problem | null>(null);
@@ -14,10 +15,12 @@ export const HomePage: React.FC = () => {
     setShowList(false);
   };
 
-  const handleAnswer = (isCorrect: boolean) => {
-    if (isCorrect && selectedProblem) {
-      setScore((prevScore) => prevScore + selectedProblem.points);
-    }
+  const handleProblemComplete = (points: number) => {
+    setScore((prevScore) => prevScore + points);
+  };
+
+  const handleProblemError = () => {
+    // Handle error logic here
   };
 
   const handleBackToList = () => {
@@ -26,35 +29,100 @@ export const HomePage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      <header className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center">
-            <h1 className="text-2xl font-bold text-gray-900">
-              Minotauro - Problemas Matemáticos
-            </h1>
-            <div className="text-lg font-semibold text-green-600">
-              Puntuación: {score}
-            </div>
-          </div>
-        </div>
-      </header>
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.title}>Minotauro - Problemas Matemáticos</Text>
+        <Text style={styles.score}>Puntuación: {score}</Text>
+      </View>
 
-      <main className="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
+      <View style={styles.content}>
         {showList ? (
-          <ProblemList onProblemSelect={handleProblemSelect} />
+          <View style={styles.problemsList}>
+            {mockProblems.map((problem) => (
+              <TouchableOpacity
+                key={problem.id}
+                style={styles.problemItem}
+                onPress={() => handleProblemSelect(problem)}
+              >
+                <Text style={styles.problemTitle}>{problem.question}</Text>
+                <Text style={styles.problemLevel}>Nivel {problem.level}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
         ) : selectedProblem ? (
-          <div>
-            <button
-              onClick={handleBackToList}
-              className="mb-4 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+          <View>
+            <TouchableOpacity
+              onPress={handleBackToList}
+              style={styles.backButton}
             >
-              ← Volver a la lista
-            </button>
-            <ProblemCard problem={selectedProblem} onAnswer={handleAnswer} />
-          </div>
+              <Text style={styles.backButtonText}>← Volver a la lista</Text>
+            </TouchableOpacity>
+            <ProblemCard
+              problem={selectedProblem}
+              onComplete={handleProblemComplete}
+              onError={handleProblemError}
+            />
+          </View>
         ) : null}
-      </main>
-    </div>
+      </View>
+    </View>
   );
 };
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: colors.background.default,
+  },
+  header: {
+    backgroundColor: colors.background.paper,
+    padding: spacing.lg,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  title: {
+    ...typography.h2,
+    color: colors.text.primary,
+  },
+  score: {
+    ...typography.body,
+    color: colors.success.main,
+    fontWeight: "600",
+  },
+  content: {
+    flex: 1,
+    padding: spacing.md,
+  },
+  problemsList: {
+    gap: spacing.md,
+  },
+  problemItem: {
+    backgroundColor: colors.background.paper,
+    padding: spacing.lg,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.primary.light,
+  },
+  problemTitle: {
+    ...typography.body,
+    color: colors.text.primary,
+    marginBottom: spacing.xs,
+  },
+  problemLevel: {
+    ...typography.caption,
+    color: colors.text.secondary,
+  },
+  backButton: {
+    backgroundColor: colors.background.paper,
+    padding: spacing.md,
+    borderRadius: 8,
+    marginBottom: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.primary.light,
+  },
+  backButtonText: {
+    ...typography.body,
+    color: colors.text.primary,
+  },
+});

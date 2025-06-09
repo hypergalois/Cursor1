@@ -1,11 +1,26 @@
 import React, { useState } from "react";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
-import { Problem } from "../types/Problem";
-import { useTheme } from "../theme/ThemeProvider";
+import {
+  colors,
+  spacing,
+  typography,
+  shadows,
+  borderRadius,
+} from "../styles/theme";
+import { GameHeader } from "./GameHeader";
+import { BottomNavBar } from "./BottomNavBar";
 
 interface ProblemCardProps {
-  problem: Problem;
-  onComplete: (score: number) => void;
+  problem: {
+    question: string;
+    options: string[];
+    correctAnswer: number;
+    explanation: string;
+    hint: string;
+    level: number;
+    points: number;
+  };
+  onComplete: (points: number) => void;
   onError: () => void;
 }
 
@@ -14,7 +29,6 @@ export const ProblemCard: React.FC<ProblemCardProps> = ({
   onComplete,
   onError,
 }) => {
-  const theme = useTheme();
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
   const [showExplanation, setShowExplanation] = useState(false);
   const [isAnswered, setIsAnswered] = useState(false);
@@ -36,177 +50,145 @@ export const ProblemCard: React.FC<ProblemCardProps> = ({
   };
 
   return (
-    <View
-      style={[
-        styles.container,
-        { backgroundColor: theme.colors.background.paper },
-      ]}
-    >
-      <View style={styles.header}>
-        <Text style={[styles.question, { color: theme.colors.text.primary }]}>
-          {problem.question}
-        </Text>
-        <View style={styles.badges}>
-          <View
-            style={[
-              styles.badge,
-              { backgroundColor: theme.colors.primary.light },
-            ]}
-          >
-            <Text
-              style={[styles.badgeText, { color: theme.colors.primary.main }]}
-            >
-              Nivel {problem.level}
-            </Text>
-          </View>
-          <View
-            style={[
-              styles.badge,
-              { backgroundColor: theme.colors.success.light },
-            ]}
-          >
-            <Text
-              style={[styles.badgeText, { color: theme.colors.success.main }]}
-            >
-              {problem.points} puntos
-            </Text>
+    <View style={styles.container}>
+      <GameHeader xp={100} lives={3} level={problem.level} />
+
+      <View style={styles.content}>
+        <View style={styles.questionCard}>
+          <Text style={styles.question}>{problem.question}</Text>
+          <View style={styles.badges}>
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>Nivel {problem.level}</Text>
+            </View>
+            <View style={[styles.badge, styles.pointsBadge]}>
+              <Text style={[styles.badgeText, styles.pointsText]}>
+                {problem.points} puntos
+              </Text>
+            </View>
           </View>
         </View>
-      </View>
 
-      <View style={styles.optionsContainer}>
-        {problem.options.map((option, index) => (
-          <TouchableOpacity
-            key={index}
-            onPress={() => handleAnswer(index)}
-            disabled={isAnswered}
-            style={[
-              styles.option,
-              selectedAnswer === index && {
-                backgroundColor:
-                  index === problem.correctAnswer
-                    ? theme.colors.success.light
-                    : theme.colors.error.light,
-                borderColor:
-                  index === problem.correctAnswer
-                    ? theme.colors.success.main
-                    : theme.colors.error.main,
-              },
-            ]}
-          >
-            <Text
-              style={[styles.optionText, { color: theme.colors.text.primary }]}
+        <View style={styles.optionsContainer}>
+          {problem.options.map((option, index) => (
+            <TouchableOpacity
+              key={index}
+              onPress={() => handleAnswer(index)}
+              disabled={isAnswered}
+              style={[
+                styles.option,
+                selectedAnswer === index && {
+                  backgroundColor:
+                    index === problem.correctAnswer
+                      ? colors.success.light
+                      : colors.error.light,
+                  borderColor:
+                    index === problem.correctAnswer
+                      ? colors.success.main
+                      : colors.error.main,
+                },
+              ]}
             >
-              {option}
-            </Text>
-          </TouchableOpacity>
-        ))}
+              <Text style={styles.optionText}>{option}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {showExplanation && (
+          <View style={styles.explanationCard}>
+            <Text style={styles.explanationTitle}>Explicación:</Text>
+            <Text style={styles.explanationText}>{problem.explanation}</Text>
+            <Text style={styles.hintTitle}>Pista:</Text>
+            <Text style={styles.hintText}>{problem.hint}</Text>
+          </View>
+        )}
       </View>
 
-      {showExplanation && (
-        <View
-          style={[
-            styles.explanation,
-            { backgroundColor: theme.colors.background.default },
-          ]}
-        >
-          <Text
-            style={[
-              styles.explanationTitle,
-              { color: theme.colors.text.primary },
-            ]}
-          >
-            Explicación:
-          </Text>
-          <Text
-            style={[
-              styles.explanationText,
-              { color: theme.colors.text.secondary },
-            ]}
-          >
-            {problem.explanation}
-          </Text>
-          <Text
-            style={[styles.hintTitle, { color: theme.colors.text.primary }]}
-          >
-            Pista:
-          </Text>
-          <Text
-            style={[styles.hintText, { color: theme.colors.text.secondary }]}
-          >
-            {problem.hint}
-          </Text>
-        </View>
-      )}
+      <BottomNavBar currentScreen="home" onNavigate={() => {}} />
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    borderRadius: 8,
-    padding: 16,
-    marginVertical: 8,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    flex: 1,
+    backgroundColor: colors.background.default,
   },
-  header: {
-    marginBottom: 16,
+  content: {
+    flex: 1,
+    padding: spacing.md,
+  },
+  questionCard: {
+    backgroundColor: colors.background.paper,
+    padding: spacing.lg,
+    borderRadius: borderRadius.lg,
+    marginBottom: spacing.lg,
+    ...shadows.medium,
   },
   question: {
-    fontSize: 18,
-    fontWeight: "bold",
-    marginBottom: 8,
+    ...typography.h1,
+    color: colors.text.primary,
+    marginBottom: spacing.md,
   },
   badges: {
     flexDirection: "row",
-    gap: 8,
+    gap: spacing.sm,
   },
   badge: {
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 16,
+    backgroundColor: colors.primary.light,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.sm,
+  },
+  pointsBadge: {
+    backgroundColor: colors.gold,
   },
   badgeText: {
-    fontSize: 12,
-    fontWeight: "600",
+    ...typography.caption,
+    color: colors.primary.main,
+  },
+  pointsText: {
+    color: colors.text.primary,
   },
   optionsContainer: {
-    gap: 8,
-    marginBottom: 16,
+    gap: spacing.md,
+    marginBottom: spacing.lg,
   },
   option: {
-    padding: 16,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
+    backgroundColor: colors.background.paper,
+    padding: spacing.lg,
+    borderRadius: borderRadius.md,
+    borderWidth: 2,
+    borderColor: colors.primary.light,
+    ...shadows.small,
   },
   optionText: {
-    fontSize: 16,
+    ...typography.body,
+    color: colors.text.primary,
+    textAlign: "center",
   },
-  explanation: {
-    padding: 16,
-    borderRadius: 8,
-    marginTop: 16,
+  explanationCard: {
+    backgroundColor: colors.background.paper,
+    padding: spacing.lg,
+    borderRadius: borderRadius.lg,
+    ...shadows.medium,
   },
   explanationTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    marginBottom: 8,
+    ...typography.h2,
+    color: colors.text.primary,
+    marginBottom: spacing.sm,
   },
   explanationText: {
-    fontSize: 14,
-    marginBottom: 16,
+    ...typography.body,
+    color: colors.text.secondary,
+    marginBottom: spacing.md,
   },
   hintTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    marginBottom: 8,
+    ...typography.h2,
+    color: colors.text.primary,
+    marginBottom: spacing.sm,
   },
   hintText: {
-    fontSize: 14,
+    ...typography.body,
+    color: colors.text.secondary,
   },
 });

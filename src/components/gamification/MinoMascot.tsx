@@ -6,7 +6,7 @@ import {
   shadows,
   borderRadius,
   animations,
-} from "../styles/theme";
+} from "../../styles/theme";
 
 interface MinoMascotProps {
   mood?:
@@ -19,12 +19,28 @@ interface MinoMascotProps {
     | "sleepy"
     | "surprised"
     | "focused"
-    | "proud";
+    | "proud"
+    | "frustrated"
+    | "confused"
+    | "motivated"
+    | "tired"
+    | "amazed"
+    | "determined"
+    | "relaxed"
+    | "worried"
+    | "confident";
   size?: number;
   ageGroup?: "kids" | "teens" | "adults" | "seniors";
   showThoughts?: boolean;
   isInteractive?: boolean;
-  context?: "welcome" | "problem" | "result" | "profile" | "achievement";
+  context?:
+    | "welcome"
+    | "problem"
+    | "result"
+    | "profile"
+    | "achievement"
+    | "streak"
+    | "failure";
 }
 
 const { width } = Dimensions.get("window");
@@ -99,6 +115,33 @@ const MinoMascot: React.FC<MinoMascotProps> = ({
         break;
       case "sad":
         startSadAnimations();
+        break;
+      case "frustrated":
+        startFrustratedAnimations();
+        break;
+      case "confused":
+        startConfusedAnimations();
+        break;
+      case "motivated":
+        startMotivatedAnimations();
+        break;
+      case "tired":
+        startTiredAnimations();
+        break;
+      case "amazed":
+        startAmazedAnimations();
+        break;
+      case "determined":
+        startDeterminedAnimations();
+        break;
+      case "relaxed":
+        startRelaxedAnimations();
+        break;
+      case "worried":
+        startWorriedAnimations();
+        break;
+      case "confident":
+        startConfidentAnimations();
         break;
       default:
         startNeutralAnimations();
@@ -395,6 +438,344 @@ const MinoMascot: React.FC<MinoMascotProps> = ({
     ).start();
   };
 
+  // Nuevas animaciones para estados emocionales adicionales
+  const startFrustratedAnimations = () => {
+    // Vibración de frustración
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(rotateAnim, {
+          toValue: 1,
+          duration: 100,
+          useNativeDriver: true,
+        }),
+        Animated.timing(rotateAnim, {
+          toValue: -1,
+          duration: 100,
+          useNativeDriver: true,
+        }),
+        Animated.timing(rotateAnim, {
+          toValue: 0,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+        Animated.delay(500),
+      ])
+    ).start();
+
+    // Resplandor rojizo
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(glowAnim, {
+          toValue: 0.8,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+        Animated.timing(glowAnim, {
+          toValue: 0.2,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+  };
+
+  const startConfusedAnimations = () => {
+    // Bamboleo confuso
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(rotateAnim, {
+          toValue: 1,
+          duration: 500,
+          useNativeDriver: true,
+        }),
+        Animated.timing(rotateAnim, {
+          toValue: -1,
+          duration: 500,
+          useNativeDriver: true,
+        }),
+        Animated.timing(rotateAnim, {
+          toValue: 0.5,
+          duration: 500,
+          useNativeDriver: true,
+        }),
+        Animated.timing(rotateAnim, {
+          toValue: 0,
+          duration: 500,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+
+    // Parpadeo más frecuente
+    setIsBlinking(true);
+  };
+
+  const startMotivatedAnimations = () => {
+    // Rebote energético
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(bounceAnim, {
+          toValue: -10,
+          duration: 400,
+          useNativeDriver: true,
+        }),
+        Animated.timing(bounceAnim, {
+          toValue: 0,
+          duration: 400,
+          useNativeDriver: true,
+        }),
+        Animated.delay(200),
+      ])
+    ).start();
+
+    // Pulsación fuerte
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(scaleAnim, {
+          toValue: 1.05,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+        Animated.timing(scaleAnim, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+
+    // Brillo naranja
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(glowAnim, {
+          toValue: 0.7,
+          duration: 600,
+          useNativeDriver: true,
+        }),
+        Animated.timing(glowAnim, {
+          toValue: 0.3,
+          duration: 600,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+  };
+
+  const startTiredAnimations = () => {
+    // Caída lenta y pesada
+    Animated.timing(scaleAnim, {
+      toValue: 0.9,
+      duration: 2000,
+      useNativeDriver: true,
+    }).start();
+
+    // Balanceo muy lento
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(rotateAnim, {
+          toValue: 0.3,
+          duration: 4000,
+          useNativeDriver: true,
+        }),
+        Animated.timing(rotateAnim, {
+          toValue: -0.3,
+          duration: 4000,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+
+    // Parpadeo muy lento
+    setIsBlinking(true);
+  };
+
+  const startAmazedAnimations = () => {
+    // Salto de asombro grande
+    Animated.sequence([
+      Animated.timing(bounceAnim, {
+        toValue: -25,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+      Animated.timing(scaleAnim, {
+        toValue: 1.15,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+      Animated.timing(bounceAnim, {
+        toValue: 0,
+        duration: 500,
+        useNativeDriver: true,
+      }),
+      Animated.timing(scaleAnim, {
+        toValue: 1,
+        duration: 500,
+        useNativeDriver: true,
+      }),
+    ]).start();
+
+    // Sparkles de asombro
+    startSparkleAnimation();
+
+    // Brillo azul intenso
+    Animated.timing(glowAnim, {
+      toValue: 1,
+      duration: 1000,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const startDeterminedAnimations = () => {
+    // Postura firme
+    Animated.timing(scaleAnim, {
+      toValue: 1.02,
+      duration: 800,
+      useNativeDriver: true,
+    }).start();
+
+    // Respiración determinada
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(bounceAnim, {
+          toValue: -2,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+        Animated.timing(bounceAnim, {
+          toValue: 0,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+
+    // Brillo verde constante
+    Animated.timing(glowAnim, {
+      toValue: 0.6,
+      duration: 1000,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const startRelaxedAnimations = () => {
+    // Respiración muy calmada
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(bounceAnim, {
+          toValue: -2,
+          duration: 3000,
+          useNativeDriver: true,
+        }),
+        Animated.timing(bounceAnim, {
+          toValue: 0,
+          duration: 3000,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+
+    // Escala ligeramente relajada
+    Animated.timing(scaleAnim, {
+      toValue: 0.98,
+      duration: 2000,
+      useNativeDriver: true,
+    }).start();
+
+    // Brillo suave verde
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(glowAnim, {
+          toValue: 0.4,
+          duration: 2000,
+          useNativeDriver: true,
+        }),
+        Animated.timing(glowAnim, {
+          toValue: 0.1,
+          duration: 2000,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+  };
+
+  const startWorriedAnimations = () => {
+    // Temblor nervioso
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(rotateAnim, {
+          toValue: 0.3,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+        Animated.timing(rotateAnim, {
+          toValue: -0.3,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+        Animated.timing(rotateAnim, {
+          toValue: 0,
+          duration: 100,
+          useNativeDriver: true,
+        }),
+        Animated.delay(300),
+      ])
+    ).start();
+
+    // Parpadeo rápido
+    setIsBlinking(true);
+
+    // Brillo amarillo nervioso
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(glowAnim, {
+          toValue: 0.6,
+          duration: 400,
+          useNativeDriver: true,
+        }),
+        Animated.timing(glowAnim, {
+          toValue: 0.2,
+          duration: 400,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+  };
+
+  const startConfidentAnimations = () => {
+    // Postura segura y orgullosa
+    Animated.timing(scaleAnim, {
+      toValue: 1.08,
+      duration: 1000,
+      useNativeDriver: true,
+    }).start();
+
+    // Rebote confiado
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(bounceAnim, {
+          toValue: -5,
+          duration: 1200,
+          useNativeDriver: true,
+        }),
+        Animated.timing(bounceAnim, {
+          toValue: 0,
+          duration: 1200,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+
+    // Brillo dorado constante
+    Animated.timing(glowAnim, {
+      toValue: 0.8,
+      duration: 1000,
+      useNativeDriver: true,
+    }).start();
+
+    // Sparkles ocasionales
+    startSparkleAnimation();
+  };
+
   const startSparkleAnimation = () => {
     Animated.loop(
       Animated.sequence([
@@ -488,16 +869,25 @@ const MinoMascot: React.FC<MinoMascotProps> = ({
   const getMascotEmoji = () => {
     const expressions = {
       kids: {
-        happy: "🐂",
+        happy: "😊",
         excited: "🤩",
-        celebrating: "🎉",
+        celebrating: "🥳",
         thinking: "🤔",
-        proud: "😊",
+        proud: "😁",
         surprised: "😮",
-        focused: "😤",
+        focused: "🧐",
         sleepy: "😴",
         sad: "😢",
-        neutral: "🐃",
+        neutral: "😐",
+        frustrated: "😤",
+        confused: "😵‍💫",
+        motivated: "💪",
+        tired: "😩",
+        amazed: "🤯",
+        determined: "😤",
+        relaxed: "😌",
+        worried: "😰",
+        confident: "😎",
       },
       teens: {
         happy: "😄",
@@ -509,31 +899,58 @@ const MinoMascot: React.FC<MinoMascotProps> = ({
         focused: "🎯",
         sleepy: "😪",
         sad: "😔",
-        neutral: "🐃",
+        neutral: "😐",
+        frustrated: "😠",
+        confused: "😵",
+        motivated: "🔥",
+        tired: "😴",
+        amazed: "😱",
+        determined: "💪",
+        relaxed: "😌",
+        worried: "😟",
+        confident: "😏",
       },
       adults: {
-        happy: "🐂",
+        happy: "🙂",
         excited: "😃",
-        celebrating: "🎊",
+        celebrating: "🎉",
         thinking: "🤓",
-        proud: "👨‍🎓",
+        proud: "😌",
         surprised: "😯",
         focused: "🧠",
         sleepy: "😴",
         sad: "😞",
-        neutral: "🐃",
+        neutral: "😐",
+        frustrated: "😤",
+        confused: "🤷‍♂️",
+        motivated: "💪",
+        tired: "😪",
+        amazed: "😲",
+        determined: "😤",
+        relaxed: "😊",
+        worried: "😰",
+        confident: "😎",
       },
       seniors: {
-        happy: "🐂",
+        happy: "😊",
         excited: "😊",
         celebrating: "🎉",
         thinking: "🧐",
-        proud: "👴",
+        proud: "😌",
         surprised: "😮",
         focused: "🤓",
         sleepy: "😴",
         sad: "😢",
-        neutral: "🐃",
+        neutral: "😐",
+        frustrated: "😤",
+        confused: "🤔",
+        motivated: "💪",
+        tired: "😴",
+        amazed: "😯",
+        determined: "💪",
+        relaxed: "😌",
+        worried: "😟",
+        confident: "😊",
       },
     };
 
@@ -555,6 +972,15 @@ const MinoMascot: React.FC<MinoMascotProps> = ({
       sleepy: colors.text.light,
       sad: colors.text.secondary,
       neutral: colors.primary.main,
+      frustrated: colors.error.main,
+      confused: colors.warning.main,
+      motivated: colors.duolingo.orange,
+      tired: colors.text.light,
+      amazed: colors.duolingo.blue,
+      determined: colors.success.main,
+      relaxed: colors.duolingo.green,
+      worried: colors.warning.main,
+      confident: colors.duolingo.gold,
     };
     return auraColors[currentExpression];
   };

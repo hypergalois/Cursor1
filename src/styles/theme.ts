@@ -62,6 +62,15 @@ export const colors = {
     orange: "#FF9600", // Naranja cálido
   },
 
+  // Colores adicionales para compatibilidad con componentes existentes
+  accent: "#7C3AED", // Púrpura para destacar
+  gold: "#FFC800", // Oro para logros y celebraciones
+  info: {
+    main: "#1CB0F6", // Azul informativo
+    light: "#BAE6FD", // Azul claro
+    dark: "#0284C7", // Azul oscuro
+  },
+
   // Gradientes suaves
   gradients: {
     primary: ["#58A6FF", "#1CB0F6"],

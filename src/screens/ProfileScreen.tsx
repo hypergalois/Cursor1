@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -6,351 +6,408 @@ import {
   TouchableOpacity,
   ScrollView,
   StatusBar,
-  Modal,
-  Animated,
+  Dimensions,
   Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import {
-  colors,
-  spacing,
-  typography,
-  shadows,
-  borderRadius,
-} from "../styles/theme";
-import { BottomNavBar } from "../components/BottomNavBar";
-import MinoMascot from "../components/MinoMascot";
-import { UserProfileExpanded } from "../components/UserProfileExpanded";
-import { LearningInsights } from "../components/LearningInsights";
-import StarSystem from "../components/StarSystem";
-import LevelProgression, {
-  getLevelData,
-  useLevelProgression,
-} from "../components/LevelProgression";
-import AchievementSystem, {
-  generateDefaultAchievements,
-} from "../components/AchievementSystem";
-import UserProgressService from "../services/UserProgress";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import MainBottomNavBar from "../components/MainBottomNavBar";
+import { onboardingService } from "../services/OnboardingService";
+
+const { width } = Dimensions.get("window");
 
 interface ProfileScreenProps {
   navigation: any;
 }
 
 const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
-  const [userProgress, setUserProgress] = useState<any>(null);
-  const [showExpandedProfile, setShowExpandedProfile] = useState(false);
-  const [achievements, setAchievements] = useState(() =>
-    generateDefaultAchievements()
-  );
-  const [isLoading, setIsLoading] = useState(true);
-  // ✅ NUEVO: Estado para perfil de usuario y insights
-  const [userProfile, setUserProfile] = useState<any>(null);
-  const [showInsights, setShowInsights] = useState(false);
+  const [selectedTab, setSelectedTab] = useState("overview");
 
-  // Sistema de progresión de nivel
-  const { totalXP, currentLevel, getLevelProgress } = useLevelProgression(
-    userProgress?.totalXP || 0
-  );
+  // Datos estáticos para mostrar
+  const userProgress = {
+    problemsSolved: 156,
+    accuracyRate: 0.84,
+    totalStars: 342,
+    currentStreak: 7,
+  };
+  const currentLevel = 8;
+  const levelData = { title: "Mago Matemático" };
 
-  useEffect(() => {
-    loadUserProgress();
-    loadUserProfile();
-  }, []);
-
-  // ✅ NUEVO: Cargar perfil de usuario para LearningInsights
-  const loadUserProfile = async () => {
-    try {
-      const profileData = await AsyncStorage.getItem("userProfile");
-      if (profileData) {
-        const profile = JSON.parse(profileData);
-        setUserProfile(profile);
-        console.log("📊 Perfil cargado para insights:", profile.ageGroup);
-      }
-    } catch (error) {
-      console.error("Error loading user profile:", error);
-    }
+  // Manejar navegación de la barra inferior
+  const handleBottomNavigation = (route: string) => {
+    navigation.navigate(route);
   };
 
-  const loadUserProgress = async () => {
-    try {
-      setIsLoading(true);
-      const progressService = UserProgressService.getInstance();
-      const stats = await progressService.getUserStats();
-
-      if (stats) {
-        // Convertir UserStats a formato compatible
-        const progress = {
-          totalXP: stats.totalXp,
-          totalStars: Math.floor(stats.totalXp / 10), // Estimación de estrellas
-          currentLevel: stats.currentLevel,
-          problemsSolved: stats.totalProblems,
-          accuracyRate:
-            stats.totalProblems > 0
-              ? stats.totalCorrect / stats.totalProblems
-              : 0,
-          currentStreak: stats.streak,
-        };
-        setUserProgress(progress);
-      } else {
-        // Crear progreso inicial básico
-        const initialProgress = {
-          totalXP: 0,
-          totalStars: 0,
-          currentLevel: 1,
-          problemsSolved: 0,
-          accuracyRate: 0,
-          currentStreak: 0,
-        };
-        setUserProgress(initialProgress);
-      }
-    } catch (error) {
-      console.error("Error loading user progress:", error);
-      // Fallback en caso de error
-      const fallbackProgress = {
-        totalXP: 0,
-        totalStars: 0,
-        currentLevel: 1,
-        problemsSolved: 0,
-        accuracyRate: 0,
-        currentStreak: 0,
-      };
-      setUserProgress(fallbackProgress);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleNavigate = (screen: string) => {
-    switch (screen) {
-      case "home":
-        navigation.navigate("Welcome");
-        break;
-      case "progress":
-        navigation.navigate("Progress");
-        break;
-      case "profile":
-        // Ya estamos en profile
-        break;
-    }
-  };
-
-  const handleBackToHome = () => {
-    navigation.navigate("Welcome");
-  };
-
-  const levelProgress = getLevelProgress();
-  const levelData = getLevelData(currentLevel);
-
-  if (isLoading) {
-    return (
-      <SafeAreaView style={styles.safeArea}>
-        <View style={styles.loadingContainer}>
-          <MinoMascot mood="neutral" size={100} />
-          <Text style={styles.loadingText}>Cargando tu perfil...</Text>
-        </View>
-      </SafeAreaView>
+  // Manejar cierre de sesión
+  const handleLogout = () => {
+    Alert.alert(
+      "Cerrar Sesión",
+      "¿Estás seguro de que quieres cerrar sesión y volver al inicio? Se perderán todos tus datos de progreso.",
+      [
+        {
+          text: "Cancelar",
+          style: "cancel",
+        },
+        {
+          text: "Sí, cerrar sesión",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await onboardingService.resetOnboarding();
+              // Resetear navegación para volver al onboarding
+              navigation.reset({
+                index: 0,
+                routes: [{ name: "WelcomeScreen" }],
+              });
+            } catch (error) {
+              Alert.alert("Error", "No se pudo cerrar la sesión");
+            }
+          },
+        },
+      ]
     );
-  }
+  };
+
+  const renderTabButton = (tab: string, title: string, icon: string) => (
+    <TouchableOpacity
+      style={[styles.tabButton, selectedTab === tab && styles.activeTabButton]}
+      onPress={() => setSelectedTab(tab)}
+    >
+      <Text style={styles.tabIcon}>{icon}</Text>
+      <Text
+        style={[styles.tabText, selectedTab === tab && styles.activeTabText]}
+      >
+        {title}
+      </Text>
+    </TouchableOpacity>
+  );
+
+  const renderOverviewTab = () => (
+    <ScrollView style={styles.tabContent} showsVerticalScrollIndicator={false}>
+      {/* Estadísticas principales */}
+      <View style={styles.statsGrid}>
+        <View style={styles.statCard}>
+          <Text style={styles.statIcon}>🎯</Text>
+          <Text style={styles.statValue}>
+            {Math.round(userProgress.accuracyRate * 100)}%
+          </Text>
+          <Text style={styles.statLabel}>Precisión</Text>
+        </View>
+
+        <View style={styles.statCard}>
+          <Text style={styles.statIcon}>⚡</Text>
+          <Text style={styles.statValue}>18.5s</Text>
+          <Text style={styles.statLabel}>Tiempo Promedio</Text>
+        </View>
+
+        <View style={styles.statCard}>
+          <Text style={styles.statIcon}>🔥</Text>
+          <Text style={styles.statValue}>{userProgress.currentStreak}</Text>
+          <Text style={styles.statLabel}>Racha Actual</Text>
+        </View>
+
+        <View style={styles.statCard}>
+          <Text style={styles.statIcon}>⭐</Text>
+          <Text style={styles.statValue}>{userProgress.totalStars}</Text>
+          <Text style={styles.statLabel}>Estrellas</Text>
+        </View>
+      </View>
+
+      {/* Progreso de nivel */}
+      <View style={styles.levelProgressSection}>
+        <Text style={styles.sectionTitle}>Progreso de Nivel</Text>
+        <View style={styles.progressContainer}>
+          <View style={styles.progressBar}>
+            <View style={[styles.progressFill, { width: "65%" }]} />
+          </View>
+          <Text style={styles.progressText}>650 / 1000 XP</Text>
+        </View>
+      </View>
+
+      {/* Habilidades destacadas */}
+      <View style={styles.skillsSection}>
+        <Text style={styles.sectionTitle}>🎨 Tu Perfil de Aprendizaje</Text>
+
+        <View style={styles.skillCard}>
+          <View style={styles.skillHeader}>
+            <Text style={styles.skillIcon}>🏆</Text>
+            <Text style={styles.skillTitle}>Fortaleza Principal</Text>
+          </View>
+          <Text style={styles.skillValue}>Aritmética</Text>
+          <Text style={styles.skillDescription}>
+            Tu área con mejor rendimiento
+          </Text>
+        </View>
+
+        <View style={styles.skillCard}>
+          <View style={styles.skillHeader}>
+            <Text style={styles.skillIcon}>🧠</Text>
+            <Text style={styles.skillTitle}>Estilo de Aprendizaje</Text>
+          </View>
+          <Text style={styles.skillValue}>Visual</Text>
+          <Text style={styles.skillDescription}>
+            Tu forma preferida de resolver problemas
+          </Text>
+        </View>
+
+        <View style={styles.skillCard}>
+          <View style={styles.skillHeader}>
+            <Text style={styles.skillIcon}>⏰</Text>
+            <Text style={styles.skillTitle}>Momento Óptimo</Text>
+          </View>
+          <Text style={styles.skillValue}>Mañana</Text>
+          <Text style={styles.skillDescription}>Cuando rindes mejor</Text>
+        </View>
+
+        {/* Sección de configuración */}
+        <View style={styles.configSection}>
+          <Text style={styles.sectionTitle}>⚙️ Configuración</Text>
+
+          <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+            <Text style={styles.logoutIcon}>🚪</Text>
+            <View style={styles.logoutContent}>
+              <Text style={styles.logoutTitle}>Cerrar Sesión</Text>
+              <Text style={styles.logoutDescription}>
+                Volver al onboarding inicial
+              </Text>
+            </View>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </ScrollView>
+  );
+
+  const renderInsightsTab = () => (
+    <ScrollView style={styles.tabContent} showsVerticalScrollIndicator={false}>
+      <Text style={styles.sectionTitle}>🧭 Insights Personalizados</Text>
+
+      <View style={styles.insightCard}>
+        <View style={styles.insightHeader}>
+          <Text style={styles.insightIcon}>💪</Text>
+          <View style={styles.insightTitleContainer}>
+            <Text style={styles.insightTitle}>Fortaleza Identificada</Text>
+            <View style={styles.priorityBadge}>
+              <Text style={styles.priorityText}>ALTO</Text>
+            </View>
+          </View>
+        </View>
+        <Text style={styles.insightDescription}>
+          Excelente desempeño en problemas de suma y resta. Tu velocidad ha
+          mejorado 23% esta semana.
+        </Text>
+        <View style={styles.actionsSection}>
+          <Text style={styles.actionsTitle}>💡 Acciones sugeridas:</Text>
+          <Text style={styles.actionText}>
+            • Intenta problemas más complejos
+          </Text>
+          <Text style={styles.actionText}>• Prueba multiplicaciones</Text>
+        </View>
+      </View>
+
+      <View style={styles.insightCard}>
+        <View style={styles.insightHeader}>
+          <Text style={styles.insightIcon}>🎯</Text>
+          <View style={styles.insightTitleContainer}>
+            <Text style={styles.insightTitle}>Área de Mejora</Text>
+            <View style={[styles.priorityBadge, styles.mediumPriority]}>
+              <Text style={styles.priorityText}>MEDIO</Text>
+            </View>
+          </View>
+        </View>
+        <Text style={styles.insightDescription}>
+          Los problemas de división requieren más tiempo. Considera practicar
+          las tablas básicas.
+        </Text>
+      </View>
+
+      <View style={styles.insightCard}>
+        <View style={styles.insightHeader}>
+          <Text style={styles.insightIcon}>💡</Text>
+          <View style={styles.insightTitleContainer}>
+            <Text style={styles.insightTitle}>Recomendación</Text>
+            <View style={[styles.priorityBadge, styles.lowPriority]}>
+              <Text style={styles.priorityText}>BAJO</Text>
+            </View>
+          </View>
+        </View>
+        <Text style={styles.insightDescription}>
+          Intenta resolver problemas en diferentes momentos del día para
+          encontrar tu horario optimal.
+        </Text>
+      </View>
+    </ScrollView>
+  );
+
+  const renderProgressTab = () => (
+    <ScrollView style={styles.tabContent} showsVerticalScrollIndicator={false}>
+      <Text style={styles.sectionTitle}>📈 Tendencias de Progreso</Text>
+
+      <View style={styles.trendCard}>
+        <View style={styles.trendHeader}>
+          <Text style={styles.trendMetric}>Precisión</Text>
+          <View style={[styles.trendDirection, styles.improving]}>
+            <Text style={styles.trendIcon}>📈</Text>
+            <Text style={styles.trendText}>Mejorando</Text>
+          </View>
+        </View>
+        <Text style={styles.trendChange}>+12.5% en la última semana</Text>
+      </View>
+
+      <View style={styles.trendCard}>
+        <View style={styles.trendHeader}>
+          <Text style={styles.trendMetric}>Velocidad</Text>
+          <View style={[styles.trendDirection, styles.stable]}>
+            <Text style={styles.trendIcon}>➡️</Text>
+            <Text style={styles.trendText}>Estable</Text>
+          </View>
+        </View>
+        <Text style={styles.trendChange}>-1.2% en la última semana</Text>
+      </View>
+
+      <View style={styles.trendCard}>
+        <View style={styles.trendHeader}>
+          <Text style={styles.trendMetric}>Consistencia</Text>
+          <View style={[styles.trendDirection, styles.improving]}>
+            <Text style={styles.trendIcon}>📈</Text>
+            <Text style={styles.trendText}>Mejorando</Text>
+          </View>
+        </View>
+        <Text style={styles.trendChange}>+8.3% en la última semana</Text>
+      </View>
+
+      {/* Métricas adicionales */}
+      <View style={styles.personalizedSection}>
+        <Text style={styles.sectionTitle}>🎯 Métricas Personalizadas</Text>
+
+        <View style={styles.metricCard}>
+          <Text style={styles.metricTitle}>💪 Nivel de Engagement</Text>
+          <View style={styles.engagementIndicator}>
+            <View style={styles.engagementBar}>
+              <View style={[styles.engagementFill, { width: "78%" }]} />
+            </View>
+            <Text style={styles.engagementText}>78%</Text>
+          </View>
+        </View>
+
+        <View style={styles.categoriesSection}>
+          <Text style={styles.metricTitle}>📊 Análisis por Categorías</Text>
+
+          <View style={styles.categoryRow}>
+            <Text style={styles.categoryLabel}>💪 Más Fuertes:</Text>
+            <Text style={styles.categoryValue}>Suma, Resta</Text>
+          </View>
+
+          <View style={styles.categoryRow}>
+            <Text style={styles.categoryLabel}>🎯 A Mejorar:</Text>
+            <Text style={styles.categoryValue}>División, Fracciones</Text>
+          </View>
+        </View>
+      </View>
+    </ScrollView>
+  );
+
+  const renderAchievementsTab = () => (
+    <ScrollView style={styles.tabContent} showsVerticalScrollIndicator={false}>
+      <Text style={styles.sectionTitle}>🏆 Logros y Reconocimientos</Text>
+
+      <View style={styles.achievementsGrid}>
+        <View style={styles.achievementCardLarge}>
+          <Text style={styles.achievementIconLarge}>🎯</Text>
+          <Text style={styles.achievementNameLarge}>Precisión Perfecta</Text>
+          <Text style={styles.achievementDescLarge}>
+            100% en 5 problemas seguidos
+          </Text>
+        </View>
+
+        <View style={styles.achievementCardLarge}>
+          <Text style={styles.achievementIconLarge}>⚡</Text>
+          <Text style={styles.achievementNameLarge}>Velocidad Relámpago</Text>
+          <Text style={styles.achievementDescLarge}>
+            Resolver en menos de 10s
+          </Text>
+        </View>
+
+        <View style={styles.achievementCardLarge}>
+          <Text style={styles.achievementIconLarge}>🔥</Text>
+          <Text style={styles.achievementNameLarge}>Racha Semanal</Text>
+          <Text style={styles.achievementDescLarge}>7 días consecutivos</Text>
+        </View>
+
+        <View style={[styles.achievementCardLarge, styles.achievementLocked]}>
+          <Text style={styles.achievementIconLarge}>🔒</Text>
+          <Text style={styles.achievementNameLarge}>Racha Legendaria</Text>
+          <Text style={styles.achievementDescLarge}>
+            Mantener 30 días seguidos
+          </Text>
+        </View>
+
+        <View style={[styles.achievementCardLarge, styles.achievementLocked]}>
+          <Text style={styles.achievementIconLarge}>🔒</Text>
+          <Text style={styles.achievementNameLarge}>Maestro Matemático</Text>
+          <Text style={styles.achievementDescLarge}>
+            Completar 1000 problemas
+          </Text>
+        </View>
+      </View>
+    </ScrollView>
+  );
+
+  const renderContent = () => {
+    switch (selectedTab) {
+      case "overview":
+        return renderOverviewTab();
+      case "insights":
+        return renderInsightsTab();
+      case "progress":
+        return renderProgressTab();
+      case "achievements":
+        return renderAchievementsTab();
+      default:
+        return renderOverviewTab();
+    }
+  };
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar
-        barStyle="dark-content"
-        backgroundColor={colors.background.default}
-      />
+      <StatusBar barStyle="dark-content" backgroundColor="#F8F9FA" />
 
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-        bounces={true}
-      >
-        <View style={styles.content}>
-          {/* Header con avatar y información básica */}
-          <View style={styles.header}>
-            <View style={styles.avatarContainer}>
-              <MinoMascot mood="happy" size={120} />
-              <View style={styles.levelBadge}>
-                <Text style={styles.levelBadgeText}>Nv.{currentLevel}</Text>
-              </View>
+      <View style={styles.container}>
+        {/* Header con avatar y información básica */}
+        <View style={styles.header}>
+          <View style={styles.avatarContainer}>
+            <View style={styles.avatar}>
+              <Text style={styles.avatarText}>🧙‍♂️</Text>
             </View>
-
-            <View style={styles.basicInfo}>
-              <Text style={styles.name}>Aventurero Matemático</Text>
-              <Text style={styles.levelTitle}>{levelData.title}</Text>
-              <Text style={styles.subtitle}>
-                {userProgress?.problemsSolved || 0} problemas resueltos
-              </Text>
+            <View style={styles.levelBadge}>
+              <Text style={styles.levelBadgeText}>Nv.{currentLevel}</Text>
             </View>
           </View>
 
-          {/* Progresión de nivel integrada */}
-          <View style={styles.levelSection}>
-            <LevelProgression
-              currentXP={levelProgress.currentXP}
-              level={currentLevel}
-              animated={true}
-              showDetails={false}
-            />
-          </View>
-
-          {/* Estadísticas rápidas */}
-          <View style={styles.quickStatsSection}>
-            <Text style={styles.sectionTitle}>🎯 Resumen Rápido</Text>
-            <View style={styles.statsGrid}>
-              <View style={styles.statCard}>
-                <Text style={styles.statIcon}>🏆</Text>
-                <Text style={styles.statNumber}>
-                  {userProgress?.problemsSolved || 0}
-                </Text>
-                <Text style={styles.statLabel}>Problemas{"\n"}Resueltos</Text>
-              </View>
-              <View style={styles.statCard}>
-                <Text style={styles.statIcon}>🎯</Text>
-                <Text style={styles.statNumber}>
-                  {Math.round((userProgress?.accuracyRate || 0) * 100)}%
-                </Text>
-                <Text style={styles.statLabel}>Precisión{"\n"}Global</Text>
-              </View>
-              <View style={styles.statCard}>
-                <Text style={styles.statIcon}>⭐</Text>
-                <Text style={styles.statNumber}>
-                  {userProgress?.totalStars || 0}
-                </Text>
-                <Text style={styles.statLabel}>Estrellas{"\n"}Ganadas</Text>
-              </View>
-              <View style={styles.statCard}>
-                <Text style={styles.statIcon}>🔥</Text>
-                <Text style={styles.statNumber}>
-                  {userProgress?.currentStreak || 0}
-                </Text>
-                <Text style={styles.statLabel}>Racha{"\n"}Actual</Text>
-              </View>
-            </View>
-          </View>
-
-          {/* ✅ NUEVO: Sección de Learning Insights */}
-          {userProfile && (
-            <View style={styles.insightsPreview}>
-              <View style={styles.achievementsHeader}>
-                <Text style={styles.sectionTitle}>🧠 Insights de IA</Text>
-                <TouchableOpacity onPress={() => setShowInsights(true)}>
-                  <Text style={styles.viewAllText}>Ver análisis →</Text>
-                </TouchableOpacity>
-              </View>
-              <LearningInsights
-                userId="current_user"
-                userProfile={userProfile}
-                compact={true}
-              />
-            </View>
-          )}
-
-          {/* Logros recientes - Vista compacta */}
-          <View style={styles.achievementsPreview}>
-            <View style={styles.achievementsHeader}>
-              <Text style={styles.sectionTitle}>🏆 Logros</Text>
-              <TouchableOpacity onPress={() => setShowExpandedProfile(true)}>
-                <Text style={styles.viewAllText}>Ver todos →</Text>
-              </TouchableOpacity>
-            </View>
-            <AchievementSystem
-              achievements={achievements.slice(0, 4)}
-              compact={true}
-              showUnlockedOnly={false}
-            />
-          </View>
-
-          {/* Botones de acción */}
-          <View style={styles.actionsSection}>
-            <TouchableOpacity
-              style={styles.expandedProfileButton}
-              onPress={() => setShowExpandedProfile(true)}
-            >
-              <Text style={styles.expandedProfileButtonText}>
-                📊 Ver Perfil Completo
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.primaryButton}
-              onPress={handleBackToHome}
-            >
-              <Text style={styles.primaryButtonText}>🏠 Volver al Inicio</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.secondaryButton}
-              onPress={() => {
-                // Por ahora mostrar un alert, después se puede hacer una pantalla de settings
-                Alert.alert(
-                  "⚙️ Configuración",
-                  "Próximamente: Configuración de preferencias, notificaciones y más.",
-                  [{ text: "Entendido", style: "default" }]
-                );
-              }}
-            >
-              <Text style={styles.secondaryButtonText}>⚙️ Configuración</Text>
-            </TouchableOpacity>
+          <View style={styles.basicInfo}>
+            <Text style={styles.name}>Aventurero Matemático</Text>
+            <Text style={styles.levelTitle}>{levelData.title}</Text>
+            <Text style={styles.subtitle}>
+              {userProgress.problemsSolved} problemas resueltos
+            </Text>
           </View>
         </View>
-      </ScrollView>
 
-      {/* Modal de perfil expandido */}
-      <Modal
-        visible={showExpandedProfile}
-        animationType="slide"
-        presentationStyle="pageSheet"
-        onRequestClose={() => setShowExpandedProfile(false)}
-      >
-        <SafeAreaView style={styles.modalContainer}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>📊 Perfil Completo</Text>
-            <TouchableOpacity
-              style={styles.closeButton}
-              onPress={() => setShowExpandedProfile(false)}
-            >
-              <Text style={styles.closeButtonText}>✕</Text>
-            </TouchableOpacity>
-          </View>
+        {/* Tabs */}
+        <View style={styles.tabBar}>
+          {renderTabButton("overview", "General", "👤")}
+          {renderTabButton("insights", "Insights", "🧭")}
+          {renderTabButton("progress", "Progreso", "📈")}
+          {renderTabButton("achievements", "Logros", "🏆")}
+        </View>
 
-          <UserProfileExpanded
-            userId="current_user"
-            onClose={() => setShowExpandedProfile(false)}
-          />
-        </SafeAreaView>
-      </Modal>
+        {/* Content */}
+        {renderContent()}
 
-      {/* ✅ NUEVO: Modal de Learning Insights completo */}
-      <Modal
-        visible={showInsights}
-        animationType="slide"
-        presentationStyle="pageSheet"
-        onRequestClose={() => setShowInsights(false)}
-      >
-        <SafeAreaView style={styles.modalContainer}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>🧠 Análisis de IA Completo</Text>
-            <TouchableOpacity
-              style={styles.closeButton}
-              onPress={() => setShowInsights(false)}
-            >
-              <Text style={styles.closeButtonText}>✕</Text>
-            </TouchableOpacity>
-          </View>
-
-          {userProfile && (
-            <LearningInsights
-              userId="current_user"
-              userProfile={userProfile}
-              compact={false}
-            />
-          )}
-        </SafeAreaView>
-      </Modal>
-
-      <BottomNavBar currentScreen="profile" onNavigate={handleNavigate} />
+        {/* Bottom Navigation */}
+        <MainBottomNavBar
+          currentScreen="profile"
+          onNavigate={handleBottomNavigation}
+        />
+      </View>
     </SafeAreaView>
   );
 };
@@ -358,55 +415,47 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: colors.background.default,
+    backgroundColor: "#F8F9FA",
   },
-  loadingContainer: {
+  container: {
     flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: spacing.lg,
-  },
-  loadingText: {
-    ...typography.h2,
-    color: colors.text.secondary,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    flexGrow: 1,
-    paddingBottom: spacing.xl,
-  },
-  content: {
-    flex: 1,
-    padding: spacing.lg,
   },
   header: {
     alignItems: "center",
-    marginBottom: spacing.xl,
-    paddingVertical: spacing.lg,
-    backgroundColor: colors.background.paper,
-    borderRadius: borderRadius.lg,
-    ...shadows.medium,
+    paddingVertical: 20,
+    paddingHorizontal: 16,
+    backgroundColor: "#FFFFFF",
+    borderBottomWidth: 1,
+    borderBottomColor: "#E5E5EA",
   },
   avatarContainer: {
     position: "relative",
-    marginBottom: spacing.lg,
+    marginBottom: 16,
+  },
+  avatar: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: "#F0F0F0",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  avatarText: {
+    fontSize: 40,
   },
   levelBadge: {
     position: "absolute",
-    bottom: -spacing.xs,
-    right: -spacing.xs,
-    backgroundColor: colors.primary.main,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: borderRadius.round,
+    bottom: -4,
+    right: -4,
+    backgroundColor: "#007AFF",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 20,
     borderWidth: 2,
-    borderColor: colors.background.paper,
+    borderColor: "#FFFFFF",
   },
   levelBadgeText: {
-    ...typography.caption,
-    color: colors.background.paper,
+    color: "#FFFFFF",
     fontWeight: "700",
     fontSize: 12,
   },
@@ -414,171 +463,440 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   name: {
-    ...typography.h1,
-    color: colors.text.primary,
+    fontSize: 22,
+    fontWeight: "700",
+    color: "#1D1D1F",
     textAlign: "center",
-    marginBottom: spacing.xs,
+    marginBottom: 4,
   },
   levelTitle: {
-    ...typography.h3,
-    color: colors.primary.main,
+    fontSize: 16,
+    color: "#007AFF",
     textAlign: "center",
-    marginBottom: spacing.xs,
+    marginBottom: 4,
+    fontWeight: "600",
   },
   subtitle: {
-    ...typography.body,
-    color: colors.text.secondary,
+    fontSize: 14,
+    color: "#8E8E93",
     textAlign: "center",
   },
-  levelSection: {
-    marginBottom: spacing.xl,
-    backgroundColor: colors.background.paper,
-    borderRadius: borderRadius.lg,
-    padding: spacing.md,
-    ...shadows.small,
+  tabBar: {
+    flexDirection: "row",
+    backgroundColor: "#FFFFFF",
+    paddingHorizontal: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#E5E5EA",
   },
-  quickStatsSection: {
-    marginBottom: spacing.xl,
+  tabButton: {
+    flex: 1,
+    alignItems: "center",
+    paddingVertical: 12,
+    borderBottomWidth: 2,
+    borderBottomColor: "transparent",
   },
-  sectionTitle: {
-    ...typography.h2,
-    color: colors.text.primary,
-    marginBottom: spacing.lg,
+  activeTabButton: {
+    borderBottomColor: "#007AFF",
+  },
+  tabIcon: {
+    fontSize: 18,
+    marginBottom: 4,
+  },
+  tabText: {
+    fontSize: 11,
+    color: "#8E8E93",
+    fontWeight: "500",
+  },
+  activeTabText: {
+    color: "#007AFF",
+    fontWeight: "600",
+  },
+  tabContent: {
+    flex: 1,
+    padding: 16,
   },
   statsGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: spacing.md,
+    gap: 12,
+    marginBottom: 16,
   },
   statCard: {
-    flex: 1,
-    minWidth: "45%",
-    backgroundColor: colors.background.paper,
-    padding: spacing.lg,
-    borderRadius: borderRadius.lg,
+    width: (width - 44) / 2,
+    backgroundColor: "#FFFFFF",
+    padding: 16,
+    borderRadius: 12,
     alignItems: "center",
-    ...shadows.medium,
-    borderWidth: 1,
-    borderColor: colors.primary.light,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
   statIcon: {
-    fontSize: 32,
-    marginBottom: spacing.sm,
+    fontSize: 28,
+    marginBottom: 8,
   },
-  statNumber: {
-    ...typography.h1,
-    color: colors.primary.main,
-    marginBottom: spacing.xs,
+  statValue: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#007AFF",
+    marginBottom: 4,
   },
   statLabel: {
-    ...typography.caption,
-    color: colors.text.secondary,
+    fontSize: 12,
+    color: "#8E8E93",
     textAlign: "center",
-    fontWeight: "500",
   },
-  // ✅ NUEVO: Estilo para insights preview
-  insightsPreview: {
-    marginBottom: spacing.xl,
-    backgroundColor: colors.background.paper,
-    padding: spacing.lg,
-    borderRadius: borderRadius.lg,
-    ...shadows.small,
+  levelProgressSection: {
+    marginBottom: 16,
   },
-  achievementsPreview: {
-    marginBottom: spacing.xl,
-    backgroundColor: colors.background.paper,
-    padding: spacing.lg,
-    borderRadius: borderRadius.lg,
-    ...shadows.small,
+  progressContainer: {
+    backgroundColor: "#FFFFFF",
+    padding: 16,
+    borderRadius: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
-  achievementsHeader: {
+  progressBar: {
+    height: 8,
+    backgroundColor: "#E5E5EA",
+    borderRadius: 4,
+    overflow: "hidden",
+    marginBottom: 8,
+  },
+  progressFill: {
+    height: "100%",
+    backgroundColor: "#007AFF",
+    borderRadius: 4,
+  },
+  progressText: {
+    fontSize: 12,
+    color: "#8E8E93",
+    textAlign: "center",
+  },
+  skillsSection: {
+    marginBottom: 16,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#1D1D1F",
+    marginBottom: 16,
+  },
+  skillCard: {
+    backgroundColor: "#FFFFFF",
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  skillHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  skillIcon: {
+    fontSize: 20,
+    marginRight: 8,
+  },
+  skillTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#1D1D1F",
+  },
+  skillValue: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#007AFF",
+    marginBottom: 4,
+  },
+  skillDescription: {
+    fontSize: 12,
+    color: "#8E8E93",
+  },
+  insightCard: {
+    backgroundColor: "#FFFFFF",
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+    borderLeftWidth: 4,
+    borderLeftColor: "#34C759",
+  },
+  insightHeader: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    marginBottom: 8,
+  },
+  insightIcon: {
+    fontSize: 20,
+    marginRight: 8,
+  },
+  insightTitleContainer: {
+    flex: 1,
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: spacing.md,
+    alignItems: "flex-start",
   },
-  viewAllText: {
-    ...typography.body,
-    color: colors.primary.main,
+  insightTitle: {
+    fontSize: 16,
     fontWeight: "600",
+    color: "#1D1D1F",
+    flex: 1,
+  },
+  priorityBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 20,
+    marginLeft: 8,
+    backgroundColor: "#FF3B30",
+  },
+  mediumPriority: {
+    backgroundColor: "#FF9500",
+  },
+  lowPriority: {
+    backgroundColor: "#34C759",
+  },
+  priorityText: {
+    fontSize: 10,
+    fontWeight: "600",
+    color: "#FFFFFF",
+  },
+  insightDescription: {
+    fontSize: 14,
+    color: "#8E8E93",
+    lineHeight: 20,
+    marginBottom: 12,
   },
   actionsSection: {
-    gap: spacing.md,
+    marginBottom: 8,
   },
-  expandedProfileButton: {
-    backgroundColor: colors.text.accent + "20",
-    paddingVertical: spacing.lg,
-    paddingHorizontal: spacing.xl,
-    borderRadius: borderRadius.xl,
-    borderWidth: 2,
-    borderColor: colors.text.accent,
-    ...shadows.small,
-  },
-  expandedProfileButtonText: {
-    ...typography.h3,
-    color: colors.text.accent,
-    textAlign: "center",
+  actionsTitle: {
+    fontSize: 12,
     fontWeight: "600",
+    color: "#1D1D1F",
+    marginBottom: 8,
   },
-  primaryButton: {
-    backgroundColor: colors.primary.main,
-    paddingVertical: spacing.lg,
-    paddingHorizontal: spacing.xl,
-    borderRadius: borderRadius.xl,
-    ...shadows.medium,
+  actionText: {
+    fontSize: 12,
+    color: "#8E8E93",
+    lineHeight: 16,
+    marginBottom: 4,
   },
-  primaryButtonText: {
-    ...typography.h3,
-    color: colors.background.paper,
-    textAlign: "center",
-    fontWeight: "600",
+  trendCard: {
+    backgroundColor: "#FFFFFF",
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
-  secondaryButton: {
-    backgroundColor: colors.background.paper,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.xl,
-    borderRadius: borderRadius.lg,
-    borderWidth: 2,
-    borderColor: colors.primary.light,
-    ...shadows.small,
-  },
-  secondaryButtonText: {
-    ...typography.body,
-    color: colors.primary.main,
-    textAlign: "center",
-    fontWeight: "600",
-  },
-  modalContainer: {
-    flex: 1,
-    backgroundColor: colors.background.default,
-  },
-  modalHeader: {
+  trendHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    padding: spacing.lg,
-    backgroundColor: colors.background.paper,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.primary.light + "30",
-    ...shadows.small,
+    marginBottom: 8,
   },
-  modalTitle: {
-    ...typography.h2,
-    color: colors.text.primary,
+  trendMetric: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#1D1D1F",
+  },
+  trendDirection: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 20,
+  },
+  improving: {
+    backgroundColor: "#34C759",
+  },
+  stable: {
+    backgroundColor: "#8E8E93",
+  },
+  trendIcon: {
+    fontSize: 14,
+    marginRight: 4,
+  },
+  trendText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#FFFFFF",
+  },
+  trendChange: {
+    fontSize: 14,
+    color: "#8E8E93",
+  },
+  personalizedSection: {
+    marginTop: 16,
+  },
+  metricCard: {
+    backgroundColor: "#FFFFFF",
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  metricTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#1D1D1F",
+    marginBottom: 12,
+  },
+  engagementIndicator: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  engagementBar: {
+    flex: 1,
+    height: 8,
+    backgroundColor: "#E5E5EA",
+    borderRadius: 4,
+    overflow: "hidden",
+  },
+  engagementFill: {
+    height: "100%",
+    backgroundColor: "#007AFF",
+  },
+  engagementText: {
+    fontSize: 14,
+    color: "#8E8E93",
     fontWeight: "600",
   },
-  closeButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: colors.text.light + "20",
-    justifyContent: "center",
-    alignItems: "center",
+  categoriesSection: {
+    marginTop: 8,
   },
-  closeButtonText: {
-    ...typography.h3,
-    color: colors.text.secondary,
-    fontWeight: "bold",
+  categoryRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F2F2F7",
+  },
+  categoryLabel: {
+    fontSize: 14,
+    color: "#1D1D1F",
+    fontWeight: "500",
+  },
+  categoryValue: {
+    fontSize: 14,
+    color: "#8E8E93",
+    flex: 1,
+    textAlign: "right",
+  },
+  achievementsGrid: {
+    gap: 12,
+  },
+  achievementCardLarge: {
+    backgroundColor: "#FFFFFF",
+    padding: 20,
+    borderRadius: 16,
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  achievementLocked: {
+    opacity: 0.5,
+  },
+  achievementIconLarge: {
+    fontSize: 36,
+    marginBottom: 8,
+  },
+  achievementNameLarge: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#1D1D1F",
+    marginBottom: 4,
+    textAlign: "center",
+  },
+  achievementDescLarge: {
+    fontSize: 12,
+    color: "#8E8E93",
+    textAlign: "center",
+  },
+  navigationSection: {
+    padding: 16,
+    backgroundColor: "#FFFFFF",
+    borderTopWidth: 1,
+    borderTopColor: "#E5E5EA",
+  },
+  primaryButton: {
+    backgroundColor: "#007AFF",
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    borderRadius: 24,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  primaryButtonText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#FFFFFF",
+    textAlign: "center",
+  },
+  configSection: {
+    marginTop: 24,
+    marginBottom: 16,
+  },
+  logoutButton: {
+    backgroundColor: "#FFFFFF",
+    padding: 16,
+    borderRadius: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+    borderLeftWidth: 4,
+    borderLeftColor: "#FF3B30",
+  },
+  logoutIcon: {
+    fontSize: 24,
+    marginRight: 16,
+  },
+  logoutContent: {
+    flex: 1,
+  },
+  logoutTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#1D1D1F",
+    marginBottom: 4,
+  },
+  logoutDescription: {
+    fontSize: 12,
+    color: "#8E8E93",
   },
 });
 

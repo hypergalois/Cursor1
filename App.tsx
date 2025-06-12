@@ -14,6 +14,9 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import CleanHomeScreen from "./src/screens/CleanHomeScreen";
 import FocusedProblemScreen from "./src/screens/FocusedProblemScreen";
 import InstantFeedbackScreen from "./src/screens/InstantFeedbackScreen";
+import ProfileScreen from "./src/screens/ProfileScreen";
+import ExplorationScreen from "./src/screens/ExplorationScreen";
+import MapScreen from "./src/screens/MapScreen";
 
 // Importar pantallas de onboarding
 import WelcomeScreen from "./src/screens/onboarding/WelcomeScreen";
@@ -53,6 +56,9 @@ export type RootStackParamList = {
     | undefined;
   FocusedProblem: undefined;
   InstantFeedback: undefined;
+  ProfileScreen: undefined;
+  ExplorationScreen: undefined;
+  MapScreen: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -166,6 +172,33 @@ export default function App() {
                         animation: "slide_from_bottom",
                         animationDuration: 400,
                         gestureEnabled: false, // Forzar uso de botones
+                      }}
+                    />
+                    <Stack.Screen
+                      name="ProfileScreen"
+                      component={ProfileScreen}
+                      options={{
+                        animation: "slide_from_right",
+                        animationDuration: 300,
+                        gestureEnabled: true,
+                      }}
+                    />
+                    <Stack.Screen
+                      name="ExplorationScreen"
+                      component={ExplorationScreen}
+                      options={{
+                        animation: "slide_from_right",
+                        animationDuration: 300,
+                        gestureEnabled: true,
+                      }}
+                    />
+                    <Stack.Screen
+                      name="MapScreen"
+                      component={MapScreen}
+                      options={{
+                        animation: "slide_from_right",
+                        animationDuration: 300,
+                        gestureEnabled: true,
                       }}
                     />
                   </Stack.Navigator>

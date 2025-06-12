@@ -12,12 +12,13 @@ import {
 } from "react-native";
 import { useTheme } from "../theme/ThemeProvider";
 import MinoMascot from "../components/gamification/MinoMascot";
-import ProfileBottomSheet from "../components/ProfileBottomSheet";
+
 import { userProgressService, SimpleUserStats } from "../services/UserProgress";
 import { useGameLoop } from "../hooks/useGameLoop";
 import { dailyStreakService } from "../services/DailyStreakService";
 import { onboardingService, UserProfile } from "../services/OnboardingService";
 import { useMinoMood } from "../hooks/useMinoMood";
+import MainBottomNavBar from "../components/MainBottomNavBar";
 
 const { width, height } = Dimensions.get("window");
 
@@ -45,7 +46,6 @@ const CleanHomeScreen: React.FC<CleanHomeScreenProps> = ({
   const [ageGroup, setAgeGroup] = useState<
     "kids" | "teens" | "adults" | "seniors"
   >("adults");
-  const [showProfileSheet, setShowProfileSheet] = useState(false);
 
   // Cargar datos del usuario
   useEffect(() => {
@@ -114,14 +114,18 @@ const CleanHomeScreen: React.FC<CleanHomeScreenProps> = ({
     navigation.navigate("FocusedProblem");
   };
 
-  // Mostrar bottom sheet de perfil
+  // Navegar al perfil
   const handleShowProfile = () => {
-    setShowProfileSheet(true);
+    navigation.navigate("ProfileScreen");
+  };
+
+  // Manejar navegación de la barra inferior
+  const handleBottomNavigation = (route: string) => {
+    navigation.navigate(route);
   };
 
   // Manejar reset de onboarding
   const handleResetOnboarding = () => {
-    setShowProfileSheet(false);
     // Resetear navegación para volver al onboarding
     navigation.reset({
       index: 0,
@@ -354,11 +358,10 @@ const CleanHomeScreen: React.FC<CleanHomeScreenProps> = ({
         </TouchableOpacity>
       </View>
 
-      {/* Profile Bottom Sheet */}
-      <ProfileBottomSheet
-        visible={showProfileSheet}
-        onClose={() => setShowProfileSheet(false)}
-        onResetOnboarding={handleResetOnboarding}
+      {/* Bottom Navigation */}
+      <MainBottomNavBar
+        currentScreen="home"
+        onNavigate={handleBottomNavigation}
       />
     </View>
   );
